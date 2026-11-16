@@ -465,6 +465,7 @@ function M.daily()
     end
     vim.api.nvim_set_current_tabpage(session.tab)
   end
+  state = read_state()
   session.state = state
   session.completed = state.guided_completed
   session.daily = { queue = queue, position = 0, passed = 0, failed = 0 }

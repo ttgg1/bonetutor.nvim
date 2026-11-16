@@ -558,6 +558,47 @@ if vim.fn.exists(":BoneTutorDaily") == 2 then
   )
   vim.wait(50)
 end
+
+local interruption_state = { version = 2, guided_completed = 0, skills = {} }
+for _, exercise in ipairs(catalog) do
+  if not interruption_state.skills[exercise.skill] then
+    interruption_state.skills[exercise.skill] = {
+      attempts = 1,
+      successes = 1,
+      failures = 0,
+      proficiency = 0.9,
+      due_at = os.time() + 100000000,
+    }
+  end
+end
+interruption_state.skills.move_left.due_at = 0
+progress.save(vim.fn.stdpath("state") .. "/bonetutor.json", interruption_state)
+tutor.practice()
+tutor.daily()
+local interruption_tab = vim.api.nvim_get_current_tabpage()
+exercise_buf = nil
+info_buf = nil
+for _, win in ipairs(vim.api.nvim_tabpage_list_wins(interruption_tab)) do
+  local buf = vim.api.nvim_win_get_buf(win)
+  if vim.bo[buf].modifiable then
+    exercise_buf = buf
+  else
+    info_buf = buf
+  end
+end
+vim.api.nvim_win_set_cursor(0, { 1, lessons[1].target.cursor[2] - 1 })
+vim.api.nvim_exec_autocmds("CursorMoved", { buffer = exercise_buf })
+vim.wait(1000, function()
+  local panel = table.concat(vim.api.nvim_buf_get_lines(info_buf, 0, -1, false), "\n")
+  return panel:find("Daily complete", 1, true) ~= nil
+end, 5)
+local recorded_interruption = progress.load(vim.fn.stdpath("state") .. "/bonetutor.json", #lessons)
+check(
+  recorded_interruption.skills.move_left.failures == 1,
+  "starting a daily challenge preserves the abandoned practice failure after a pass"
+)
+tutor.quit()
+vim.wait(50)
 vim.notify = original_notify
 
 check(vim.deep_equal(keymaps_before.n, vim.api.nvim_get_keymap("n")), "normal mappings are unchanged")
