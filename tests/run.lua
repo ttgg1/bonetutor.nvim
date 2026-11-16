@@ -165,7 +165,10 @@ for index, lesson in ipairs(lessons) do
         ("lesson %d automatically advances after passing"):format(index)
       )
     else
-      check(panel:find("ALL DONE!", 1, true) ~= nil, "final lesson shows completion")
+      check(
+        panel:find((" %02d/26 "):format(1), 1, true) ~= nil,
+        "final lesson automatically wraps to lesson 1"
+      )
     end
   end
 end
@@ -198,19 +201,55 @@ check(
 )
 tutor.start("1")
 exercise_buf = nil
+info_buf = nil
 for _, win in ipairs(vim.api.nvim_tabpage_list_wins(tab)) do
   local buf = vim.api.nvim_win_get_buf(win)
   if vim.bo[buf].modifiable then
     exercise_buf = buf
+  else
+    info_buf = buf
   end
 end
 vim.api.nvim_exec_autocmds("CursorMoved", { buffer = exercise_buf })
 tutor.reset()
 vim.wait(50)
+check(not table.concat(vim.api.nvim_buf_get_lines(info_buf, 0, -1, false), "\n"):find("PASS!", 1, true),
+  "queued validation cannot pass after reset")
 check(
-  not table.concat(vim.api.nvim_buf_get_lines(info_buf, 0, -1, false), "\n"):find("PASS!", 1, true),
-  "queued validation cannot pass after reset"
+  vim.deep_equal(vim.api.nvim_buf_get_lines(exercise_buf, 0, -1, false), lessons[1].lines),
+  "reset restores the current lesson's source text"
 )
+local initial_cursor = vim.api.nvim_win_get_cursor(vim.api.nvim_get_current_win())
+check(initial_cursor[1] == lessons[1].start[1] and initial_cursor[2] + 1 == lessons[1].start[2],
+  "reset restores the current lesson's starting cursor")
+tutor.start(tostring(#lessons))
+exercise_buf = nil
+info_buf = nil
+for _, win in ipairs(vim.api.nvim_tabpage_list_wins(tab)) do
+  local buf = vim.api.nvim_win_get_buf(win)
+  if vim.bo[buf].modifiable then
+    exercise_buf = buf
+  else
+    info_buf = buf
+  end
+end
+check(exercise_buf ~= nil and info_buf ~= nil, "final lesson has exercise and info buffers")
+local last_key = vim.api.nvim_replace_termcodes(keys[#lessons], true, false, true)
+vim.api.nvim_feedkeys(last_key, "xt", false)
+vim.api.nvim_exec_autocmds("CursorMoved", { buffer = exercise_buf })
+vim.wait(1000, function()
+  return table.concat(vim.api.nvim_buf_get_lines(info_buf, 0, -1, false), "\n"):find("ALL DONE!", 1, true) ~= nil
+end, 5)
+vim.wait(700)
+check(table.concat(vim.api.nvim_buf_get_lines(info_buf, 0, -1, false), "\n"):find("01/26", 1, true) ~= nil,
+  "final lesson returns to lesson 1")
+check(vim.deep_equal(vim.api.nvim_buf_get_lines(exercise_buf, 0, -1, false), lessons[1].lines),
+  "completing the final lesson wraps around to lesson 1")
+vim.api.nvim_exec_autocmds("CursorMoved", { buffer = exercise_buf })
+tutor.reset()
+vim.wait(50)
+check(vim.deep_equal(vim.api.nvim_buf_get_lines(exercise_buf, 0, -1, false), lessons[1].lines),
+  "reset after completing the final lesson restores lesson 1")
 tutor.quit()
 vim.wait(50)
 check(not vim.api.nvim_tabpage_is_valid(tab), "quit closes the tutor tab")

@@ -123,12 +123,7 @@ local function check(generation)
         then
           return
         end
-        if completed_index == #lessons then
-          session.finished = true
-          render()
-        else
-          load_lesson(completed_index + 1)
-        end
+        load_lesson(completed_index % #lessons + 1)
       end, 600)
     end
   end
@@ -268,11 +263,8 @@ function M.next()
     M.quit()
   elseif not session.passed then
     vim.notify("BoneTutor: complete the goal before advancing (or :BoneTutor <number>)", vim.log.levels.INFO)
-  elseif session.index == #lessons then
-    session.finished = true
-    render()
   else
-    load_lesson(session.index + 1)
+    load_lesson(session.index % #lessons + 1)
   end
 end
 
