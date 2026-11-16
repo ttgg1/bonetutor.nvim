@@ -18,9 +18,14 @@ It opens a separate tab with a read-only goal panel above a real practice buffer
    return {
      {
        dir = vim.fn.stdpath("config") .. "/local/bonetutor.nvim",
-       name = "bonetutor.nvim",
-       cmd = {
-          "BoneTutor", "BoneTutorPractice", "BoneTutorNext", "BoneTutorPrev", "BoneTutorReset",
+        name = "bonetutor.nvim",
+        cmd = {
+          "BoneTutor",
+          "BoneTutorPractice",
+          "BoneTutorDaily",
+          "BoneTutorNext",
+          "BoneTutorPrev",
+          "BoneTutorReset",
          "BoneTutorHint", "BoneTutorKeys", "BoneTutorQuit",
        },
      },
@@ -38,6 +43,7 @@ If you use plain Neovim instead of LazyVim, you can put the unpacked plugin at `
 | `:BoneTutor` | Start or resume the first unfinished lesson. Focus an existing tutor if it is already open. |
 | `:BoneTutor 5` | Jump to lesson 5. |
 | `:BoneTutorPractice` | Start adaptive practice based on skill outcomes and review due dates. |
+| `:BoneTutorDaily` | Start a short daily session of due reviews and up to two new skills. |
 | `:BoneTutorHint` | Show/hide the Bone-specific key position hint. |
 | `:BoneTutorKeys` | Show/hide Bone logical key rows and highlight the current command keys. |
 | `:BoneTutorNext` | Advance manually; passing a lesson also advances automatically after a brief success message. |
@@ -83,6 +89,7 @@ modifier keys are placed.
 - A goal involving insertion passes after you press Escape and the resulting buffer matches the target.
 - On pass, the tutor briefly shows success, then automatically loads the next lesson. Passing the final lesson wraps to lesson 1.
 - Adaptive practice selects among the guided catalog and variants, recording pass/reset outcomes, hint use, and elapsed seconds per skill. It stores no raw keystrokes.
+- Daily practice uses the same tutor panes, prioritizes due reviews, introduces at most two new skills, and shows a pass/failure summary when completed or quit.
 - Session progress lives at `stdpath("state")/bonetutor.json` in a versioned format. Existing `{"completed": n}` progress is migrated automatically; delete **that specific file** to restart from lesson 1, or jump to any exercise with `:BoneTutor <number>`.
 - The layout map defaults to standard Bone; a custom Bone/Q/ß variant may differ. Nothing in the tutor changes the OS layout.
 

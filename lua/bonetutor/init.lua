@@ -44,7 +44,9 @@ local function render()
 
   local lesson = session.current_lesson
   local status
-  if session.finished then
+  if session.mode == "daily" and session.finished then
+    status = ("Daily complete!  %d passed, %d failed."):format(session.daily.passed, session.daily.failed)
+  elseif session.finished then
     status = "ALL DONE!  :BoneTutorQuit closes the training tab."
   elseif session.passed then
     status = "PASS!  Continue with :BoneTutorNext"
@@ -53,7 +55,9 @@ local function render()
   end
 
   local heading
-  if session.mode == "practice" then
+  if session.mode == "daily" then
+    heading = ("BoneTutor Daily Challenge  ·  %d/%d"):format(session.daily.position, #session.daily.queue)
+  elseif session.mode == "practice" then
     heading = ("BoneTutor Adaptive Practice  ·  %s"):format(session.exercise.id)
   else
     heading = ("BoneTutor  %02d/%02d   [completed: %02d/%02d]"):format(
@@ -128,6 +132,17 @@ end
 
 local load_lesson
 local load_practice
+local load_daily
+
+local function advance_daily()
+  local next_position = session.daily.position + 1
+  if session.daily.queue[next_position] then
+    load_daily(next_position)
+  else
+    session.finished = true
+    render()
+  end
+end
 
 local function record_attempt(outcome)
   if not session or session.attempt_recorded or not session.skill then
@@ -146,6 +161,17 @@ local function record_attempt(outcome)
   )
   session.attempt_recorded = true
   save_state()
+end
+
+local function record_failure()
+  if session.mode == "daily" then
+    if not session.attempt_recorded then
+      session.daily.failed = session.daily.failed + 1
+      record_attempt("failure")
+    end
+  else
+    record_attempt("failure")
+  end
 end
 
 local function choose_practice()
@@ -180,6 +206,9 @@ local function check(generation)
   local passed = matches(session.current_lesson)
   if passed then
     record_attempt("success")
+    if session.mode == "daily" and not session.passed then
+      session.daily.passed = session.daily.passed + 1
+    end
     if session.mode == "guided" and session.index == session.completed + 1 then
       -- Track the completed PREFIX, not the highest arbitrary lesson jump.
       session.completed = session.index
@@ -201,6 +230,8 @@ local function check(generation)
         end
         if session.mode == "practice" then
           load_practice(choose_practice())
+        elseif session.mode == "daily" then
+          advance_daily()
         else
           load_lesson(completed_index % #lessons + 1)
         end
@@ -311,6 +342,38 @@ load_practice = function(exercise)
   render()
 end
 
+load_daily = function(position)
+  local exercise = session.daily.queue[position]
+  session.mode = "daily"
+  session.daily.position = position
+  session.exercise = exercise
+  session.index = position
+  session.skill = exercise.skill
+  session.current_lesson = {
+    group = exercise.language and ("Real-world " .. exercise.language) or "Daily review",
+    title = exercise.title or exercise.id,
+    goal = exercise.prompt,
+    hint = exercise.hint,
+    lines = exercise.lines,
+    start = exercise.start,
+    target = exercise.target,
+    keys = exercise.keys,
+  }
+  session.passed = false
+  session.finished = false
+  session.hint = false
+  session.hints_used = 0
+  session.started_at = os.time()
+  session.attempt_recorded = false
+  session.generation = session.generation + 1
+  vim.bo[session.exercise_buf].modifiable = true
+  vim.api.nvim_buf_set_lines(session.exercise_buf, 0, -1, false, exercise.lines)
+  vim.bo[session.exercise_buf].modified = false
+  vim.api.nvim_set_current_win(session.exercise_win)
+  vim.api.nvim_win_set_cursor(session.exercise_win, { exercise.start[1], exercise.start[2] - 1 })
+  render()
+end
+
 local function open_session()
   local state = read_state()
   vim.cmd("tabnew")
@@ -386,6 +449,28 @@ function M.practice()
   load_practice(choose_practice())
 end
 
+function M.daily()
+  local state = read_state()
+  local queue = scheduler.daily(state, catalog, os.time(), tonumber(os.date("%Y%m%d")))
+  if #queue == 0 then
+    vim.notify("BoneTutor: no eligible exercises for today's challenge", vim.log.levels.INFO)
+    return
+  end
+
+  if not valid() then
+    open_session()
+  else
+    if not session.passed then
+      record_failure()
+    end
+    vim.api.nvim_set_current_tabpage(session.tab)
+  end
+  session.state = state
+  session.completed = state.guided_completed
+  session.daily = { queue = queue, position = 0, passed = 0, failed = 0 }
+  load_daily(1)
+end
+
 local function active()
   if not valid() then
     vim.notify("BoneTutor: start with :BoneTutor", vim.log.levels.WARN)
@@ -406,6 +491,8 @@ function M.next()
   else
     if session.mode == "practice" then
       load_practice(choose_practice())
+    elseif session.mode == "daily" then
+      advance_daily()
     else
       load_lesson(session.index % #lessons + 1)
     end
@@ -414,16 +501,22 @@ end
 
 function M.prev()
   if active() then
-    load_lesson(math.max(1, session.index - 1))
+    if session.mode == "daily" then
+      load_daily(math.max(1, session.daily.position - 1))
+    else
+      load_lesson(math.max(1, session.index - 1))
+    end
   end
 end
 
 function M.reset()
   if active() then
     if not session.passed then
-      record_attempt("failure")
+      record_failure()
     end
-    if session.mode == "practice" then
+    if session.mode == "daily" then
+      load_daily(session.daily.position)
+    elseif session.mode == "practice" then
       load_practice(session.exercise)
     else
       load_lesson(session.index)
@@ -454,8 +547,16 @@ function M.quit()
   end
   -- Our buffers contain disposable drills, not user files. Leave any other
   -- windows in the tab to Neovim's normal unsaved-changes protection.
-  if session.mode == "practice" and not session.passed then
+  if session.mode == "daily" and not session.finished and not session.passed then
+    record_failure()
+  elseif session.mode == "practice" and not session.passed then
     record_attempt("failure")
+  end
+  if session.mode == "daily" then
+    vim.notify(
+      ("BoneTutor Daily: %d passed, %d failed"):format(session.daily.passed, session.daily.failed),
+      vim.log.levels.INFO
+    )
   end
   vim.bo[session.exercise_buf].modified = false
   vim.bo[session.info_buf].modified = false

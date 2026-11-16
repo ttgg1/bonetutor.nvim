@@ -136,7 +136,7 @@ symbol rows from the [official Bone layout](https://www.neo-layout.org/Layouts/b
 `:BoneTutorKeys` highlights keys used by the current exercise. The display reports
 logical symbols and does not assume where a user's physical modifier key is located.
 
-## BT-08 — Add session feedback and daily challenge (P2)
+## BT-08 — Add session feedback and daily challenge (P2) — complete
 
 **Depends on:** BT-05, BT-06
 
@@ -148,6 +148,11 @@ logical symbols and does not assume where a user's physical modifier key is loca
 - Challenge composition is deterministic for a fixed date and state.
 - Teardown persists results and displays a concise summary.
 - Basic operation has no UI-library dependency.
+
+`scheduler.daily` selects due reviews first, then introduces no more than two
+eligible new skills; the sequence is deterministic for the current date and progress
+state. `:BoneTutorDaily` uses the existing tutor panes and reports passed/failed counts
+on completion or quit.
 
 ## BT-09 — Evaluate optional practice enhancements (P3)
 

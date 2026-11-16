@@ -77,6 +77,7 @@ check(migrated.skills.valid and migrated.skills.valid.attempts == 3, "valid skil
 check(migrated.skills.malformed == nil, "malformed skill records are discarded")
 dofile("plugin/bonetutor.lua")
 check(vim.fn.exists(":BoneTutorPractice") == 2, "adaptive practice command is registered")
+check(vim.fn.exists(":BoneTutorDaily") == 2, "daily challenge command is registered")
 local exercises = {
   { id = "word-a", skill = "word", prerequisites = {} },
   { id = "word-b", skill = "word", prerequisites = {} },
@@ -100,6 +101,62 @@ selection = scheduler.next({
   skills = { word = { proficiency = 0.9, due_at = 100, mastered = true } },
 }, exercises, 20, 1)
 check(selection and selection.skill == "compound", "scheduler unlocks compounds after mastery")
+check(type(scheduler.daily) == "function", "scheduler exposes daily sequence selection")
+if scheduler.daily then
+  local daily_exercises = {
+    { id = "review_word", skill = "word", prerequisites = {} },
+    { id = "review_line", skill = "line", prerequisites = {} },
+    { id = "new_alpha", skill = "alpha", prerequisites = {} },
+    { id = "new_beta", skill = "beta", prerequisites = {} },
+    { id = "new_gamma", skill = "gamma", prerequisites = {} },
+    { id = "locked", skill = "locked", prerequisites = { "missing" } },
+  }
+  local daily_state = {
+    skills = {
+      word = { proficiency = 0.4, due_at = 10 },
+      line = { proficiency = 0.7, due_at = 20 },
+    },
+  }
+  local daily_a = scheduler.daily(daily_state, daily_exercises, 30, 11, 5)
+  local daily_b = scheduler.daily(daily_state, daily_exercises, 30, 11, 5)
+  local function exercise_ids(sequence)
+    return vim.tbl_map(function(exercise)
+      return exercise.id
+    end, sequence)
+  end
+  check(
+    vim.deep_equal(exercise_ids(daily_a), exercise_ids(daily_b)),
+    "daily selection is stable for the same state, time, seed, and limit"
+  )
+  check(daily_a[1] and daily_a[1].skill == "word", "daily selection puts due reviews first")
+  local new_skills = {}
+  for _, exercise in ipairs(daily_a) do
+    if not daily_state.skills[exercise.skill] then
+      new_skills[exercise.skill] = true
+    end
+  end
+  check(vim.tbl_count(new_skills) <= 2, "daily selection includes at most two new skills")
+  check(#daily_a <= 5, "daily selection respects its exercise limit")
+  local future = scheduler.daily(
+    { skills = { later = { proficiency = 0.8, due_at = 200 } } },
+    { { id = "later_review", skill = "later", prerequisites = {} } },
+    100,
+    1,
+    5
+  )
+  check(future[1] and future[1].id == "later_review",
+    "daily selection falls back to the earliest future review when nothing is due")
+  check(
+    #scheduler.daily(
+      { skills = {} },
+      { { id = "locked", skill = "locked", prerequisites = { "unknown" } } },
+      100,
+      1,
+      5
+    ) == 0,
+    "daily selection returns an empty sequence when every exercise is prerequisite-locked"
+  )
+end
 local catalog = exercise_catalog.list()
 check(
   vim.deep_equal(layouts.standard.layers[1].rows, {
@@ -444,6 +501,64 @@ end
 tutor.quit()
 vim.wait(50)
 end
+
+local daily_state = { version = 2, guided_completed = 0, skills = {} }
+for _, exercise in ipairs(catalog) do
+  if not daily_state.skills[exercise.skill] then
+    daily_state.skills[exercise.skill] = {
+      attempts = 1,
+      successes = 1,
+      failures = 0,
+      proficiency = 0.9,
+      due_at = os.time() + 100000000,
+    }
+  end
+end
+daily_state.skills.move_left.due_at = 0
+progress.save(vim.fn.stdpath("state") .. "/bonetutor.json", daily_state)
+
+local original_notify = vim.notify
+local daily_notification
+vim.notify = function(message, level, opts)
+  if tostring(message):find("Daily", 1, true) then
+    daily_notification = tostring(message)
+    return
+  end
+  return original_notify(message, level, opts)
+end
+if vim.fn.exists(":BoneTutorDaily") == 2 then
+  vim.cmd("BoneTutorDaily")
+  local daily_tab = vim.api.nvim_get_current_tabpage()
+  exercise_buf = nil
+  info_buf = nil
+  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(daily_tab)) do
+    local buf = vim.api.nvim_win_get_buf(win)
+    if vim.bo[buf].modifiable then
+      exercise_buf = buf
+    else
+      info_buf = buf
+    end
+  end
+  check(exercise_buf ~= nil and info_buf ~= nil, "daily command opens the existing tutor panes")
+  local initial_daily_panel = table.concat(vim.api.nvim_buf_get_lines(info_buf, 0, -1, false), "\n")
+  check(initial_daily_panel:find("Daily Challenge", 1, true) ~= nil, "daily session identifies its mode")
+  vim.api.nvim_win_set_cursor(0, { 1, lessons[1].target.cursor[2] - 1 })
+  vim.api.nvim_exec_autocmds("CursorMoved", { buffer = exercise_buf })
+  vim.wait(1000, function()
+    return table.concat(vim.api.nvim_buf_get_lines(info_buf, 0, -1, false), "\n")
+      :find("Daily complete", 1, true) ~= nil
+  end, 5)
+  local completion_panel = table.concat(vim.api.nvim_buf_get_lines(info_buf, 0, -1, false), "\n")
+  check(completion_panel:find("1 passed", 1, true) ~= nil, "daily completion summary reports passes")
+  check(completion_panel:find("0 failed", 1, true) ~= nil, "daily completion summary reports failures")
+  tutor.quit()
+  check(
+    daily_notification and daily_notification:find("1 passed", 1, true) ~= nil,
+    "quitting a daily session reports its session summary"
+  )
+  vim.wait(50)
+end
+vim.notify = original_notify
 
 check(vim.deep_equal(keymaps_before.n, vim.api.nvim_get_keymap("n")), "normal mappings are unchanged")
 check(vim.deep_equal(keymaps_before.i, vim.api.nvim_get_keymap("i")), "insert mappings are unchanged")

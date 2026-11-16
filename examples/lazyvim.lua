@@ -7,6 +7,7 @@ return {
     cmd = {
       "BoneTutor",
       "BoneTutorPractice",
+      "BoneTutorDaily",
       "BoneTutorNext",
       "BoneTutorPrev",
       "BoneTutorReset",

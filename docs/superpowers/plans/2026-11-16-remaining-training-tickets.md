@@ -84,11 +84,11 @@
 - Add `:BoneTutorDaily`; use the existing tutor panes and no UI dependency.
 - Daily completion/quit presents a concise result summary derived from session-local counts and persisted skill outcomes.
 
-- [ ] **Step 1: Write failing tests** for stable composition at fixed state/time/seed, review-first selection, at most two new skills, empty-candidate fallback, summary counts, and teardown after quit/restart.
-- [ ] **Step 2: Run the suite and confirm** composition/command/summary behavior is missing.
-- [ ] **Step 3: Implement** daily sequence selection and safe session progression/summary. Scheduled callbacks must validate the session generation and current exercise before updating.
-- [ ] **Step 4: Run the suite and smoke command.** Confirm no callback mutates a closed/replaced session and no mappings/options are changed.
-- [ ] **Step 5: Update** daily-session documentation and BT-08 status; commit as `feat: add daily training sessions`.
+- [x] **Step 1: Write failing tests** for stable composition at fixed state/time/seed, review-first selection, at most two new skills, empty-candidate fallback, summary counts, and teardown after quit/restart.
+- [x] **Step 2: Run the suite and confirm** composition/command/summary behavior is missing.
+- [x] **Step 3: Implement** daily sequence selection and safe session progression/summary. Scheduled callbacks must validate the session generation and current exercise before updating.
+- [x] **Step 4: Run the suite and smoke command.** Confirm no callback mutates a closed/replaced session and no mappings/options are changed.
+- [x] **Step 5: Update** daily-session documentation and BT-08 status; commit as `feat: add daily training sessions`.
 
 ### Task 4: BT-09 — Record optional-feature decisions
 
