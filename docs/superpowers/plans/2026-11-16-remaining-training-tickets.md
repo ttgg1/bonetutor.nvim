@@ -99,7 +99,7 @@
 
 **Interfaces:** No new runtime interface unless an enhancement is explicitly implemented.
 
-- [ ] **Step 1: Evaluate** dashboard, free practice, alternate Bone variants, QWERTZ comparison, and `hjkl`-reduced drills against dependencies, learning value, and test cost.
-- [ ] **Step 2: Record** each choice as accepted/deferred with a concise rationale; retain physical-key interception as out of scope.
-- [ ] **Step 3: If accepting an enhancement**, first add a failing headless test, then implement it as dependency-free and disabled by default.
-- [ ] **Step 4: Run** the full suite and `git diff --check`; mark BT-09 complete with its decisions and commit as `docs: close optional training enhancement ticket`.
+- [x] **Step 1: Evaluate** dashboard, free practice, alternate Bone variants, QWERTZ comparison, and `hjkl`-reduced drills against dependencies, learning value, and test cost.
+- [x] **Step 2: Record** each choice as accepted/deferred with a concise rationale; retain physical-key interception as out of scope.
+- [x] **Step 3: If accepting an enhancement**, first add a failing headless test, then implement it as dependency-free and disabled by default.
+- [x] **Step 4: Run** the full suite and `git diff --check`; mark BT-09 complete with its decisions and commit as `docs: close optional training enhancement ticket`.

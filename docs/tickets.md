@@ -154,7 +154,7 @@ eligible new skills; the sequence is deterministic for the current date and prog
 state. `:BoneTutorDaily` uses the existing tutor panes and reports passed/failed counts
 on completion or quit.
 
-## BT-09 — Evaluate optional practice enhancements (P3)
+## BT-09 — Evaluate optional practice enhancements (P3) — complete
 
 **Depends on:** BT-07, BT-08
 
@@ -167,3 +167,15 @@ included in the guided sequence.
 - Each accepted enhancement is opt-in, independently testable, and dependency-free.
 - Physical-key tracking and invasive interception remain explicitly out of scope.
 - Avoid adding features without demonstrated learning value.
+
+**Decisions**
+
+| Enhancement | Decision | Rationale |
+| --- | --- | --- |
+| Progress dashboard | Deferred | The session summary and persisted skill state cover immediate feedback; a separate dashboard adds UI and maintenance before users have requested it. |
+| Free-practice mode | Deferred | Adaptive practice already offers repeatable, scored exercises. An unscored mode should wait until there is a concrete need for a separate session contract. |
+| Alternate Bone variants | Deferred | The standard Bone layout is the only verified default. Add variants when authoritative maps and user requirements are available. |
+| QWERTZ comparison | Deferred | The tutor's goal is direct semantic-command-to-Bone learning; a second physical-position reference risks reinforcing translation. |
+| `hjkl`-reduced drills | Deferred | Existing lessons already include word, line, search, and delimiter motions; a separate filter has not yet shown additional learning value. |
+
+Physical-key interception remains out of scope: Neovim observes logical input, and OS-level interception would be invasive and unreliable across terminals and layouts.
