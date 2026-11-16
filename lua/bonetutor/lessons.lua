@@ -71,7 +71,7 @@ return {
     goal = "Jump to the FIRST line.",
     hint = "Press gg. Bone: g is on the home row, right hand, fifth letter.",
     lines = { "first", "middle", "last" }, start = { 3, 2 },
-    target = { cursor = { 1, 1 } },
+    target = { cursor = { 1, 2 } },
   },
   {
     group = "03 · Lines and files", title = "Bottom of file",

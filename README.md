@@ -39,7 +39,7 @@ If you use plain Neovim instead of LazyVim, you can put the unpacked plugin at `
 | `:BoneTutor 5` | Jump to lesson 5. |
 | `:BoneTutorHint` | Show/hide the Bone-specific key position hint. |
 | `:BoneTutorKeys` | Show/hide the standard Bone layer-1 letter rows. |
-| `:BoneTutorNext` | Advance *only after* the exercise passes. |
+| `:BoneTutorNext` | Advance manually; passing a lesson also advances automatically after a brief success message. |
 | `:BoneTutorPrev` | Go to the previous lesson. |
 | `:BoneTutorReset` | Reset the current lesson. |
 | `:BoneTutorQuit` | Close the tutorial tab. |
@@ -73,7 +73,8 @@ Bone's layers 3 and 4 retain the Neo layer arrangements. Commands involving punc
 - **Native Vim is intentionally used:** the check verifies the final state, not how you got there. For meaningful practice, don't use arrow keys for the `hjkl` lessons. Plugins that intercept a native command may need to be disabled for the affected lesson.
 - As in VimTutor, edits use real Vim operators and registers. If your configuration maps the unnamed register to the system clipboard, `d`, `x`, and `yy` may change your clipboard. Practice in the isolated tutor buffer, but consider temporarily changing your clipboard option if this matters to you.
 - A goal involving insertion passes after you press Escape and the resulting buffer matches the target.
-- Session progress lives at `stdpath("state")/bonetutor.json`; delete **that specific file** to restart from lesson 1, or jump to any exercise with `:BoneTutor <number>`.
+- On pass, the tutor briefly shows success, then automatically loads the next lesson. Passing the final lesson shows the completion message.
+- Session progress lives at `stdpath("state")/bonetutor.json` in a versioned format. Existing `{"completed": n}` progress is migrated automatically; delete **that specific file** to restart from lesson 1, or jump to any exercise with `:BoneTutor <number>`.
 - The layout map assumes standard Bone; a custom Bone/Q/ß variant may differ in those letter positions. Nothing in the tutor changes the OS layout.
 
 ## Developing or testing

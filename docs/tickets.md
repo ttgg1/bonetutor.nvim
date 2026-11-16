@@ -4,7 +4,7 @@ These tickets implement the adaptive-training plan incrementally. Preserve norma
 Vim keybindings, avoid global mappings/options, and keep the plugin dependency-free.
 Run the headless Neovim test suite after each ticket.
 
-## BT-01 — Add a headless lesson test harness (P0)
+## BT-01 — Add a headless lesson test harness (P0) — complete
 
 **Scope:** Add `tests/run.lua` and reusable helpers to load the plugin in headless
 Neovim and inspect real buffers, cursor positions, and modes.
@@ -23,7 +23,7 @@ Neovim and inspect real buffers, cursor positions, and modes.
 nvim --headless -u NONE --cmd 'set runtimepath^=.' +"lua dofile('tests/run.lua')" +qa
 ```
 
-## BT-02 — Verify lesson behavior and session lifecycle (P0)
+## BT-02 — Verify lesson behavior and session lifecycle (P0) — core coverage complete
 
 **Depends on:** BT-01
 
@@ -39,10 +39,12 @@ Exercise scheduled validation around reset, next, buffer wipe, and tab close.
 - Clipboard/register settings and global mappings/options are unchanged by session
   start/quit.
 - Session cleanup is safe after a queued watcher callback.
+- Passing an exercise briefly shows success and then advances automatically; the final
+  exercise displays completion.
 
 **Verification:** Run the suite from BT-01 and the documented start/quit smoke command.
 
-## BT-03 — Introduce versioned progress storage (P0)
+## BT-03 — Introduce versioned progress storage (P0) — complete
 
 **Depends on:** BT-01
 
@@ -56,12 +58,16 @@ migration, and persistence; preserve `stdpath("state")/bonetutor.json`.
 - Write failures produce a warning and do not abort the session.
 - Tests use an isolated state path and cover all migration/error cases.
 
-## BT-04 — Add stable skill IDs and exercise variants (P1)
+## BT-04 — Add stable skill IDs and exercise variants (P1) — core complete
 
 **Depends on:** BT-01
 
 **Scope:** Add `lua/bonetutor/exercises.lua`; annotate existing guided lessons with
 stable skill IDs and introduce a small set of distinct fixtures for common weak skills.
+
+The catalog assigns stable IDs to all 26 guided lessons and adds distinct word-motion,
+delete-inside-word, and change-inside-word variants. The adaptive controller that
+selects these definitions is BT-06.
 
 **Acceptance criteria**
 
@@ -70,12 +76,16 @@ stable skill IDs and introduce a small set of distinct fixtures for common weak 
   and deterministic targets.
 - Exercise data has no executable validation payloads and persists no user content.
 
-## BT-05 — Implement deterministic adaptive scheduling (P1)
+## BT-05 — Implement deterministic adaptive scheduling (P1) — core complete
 
 **Depends on:** BT-03, BT-04
 
 **Scope:** Add `lua/bonetutor/scheduler.lua` with
 `scheduler.next(state, exercises, now, seed) -> selection`.
+
+The current scheduler selects weak/due skills deterministically and gates compound
+exercises at 0.85 prerequisite proficiency. Outcome updates and persistent scheduling
+state are wired by BT-06.
 
 **Acceptance criteria**
 

@@ -1,5 +1,6 @@
 local M = {}
 local lessons = require("bonetutor.lessons")
+local progress = require("bonetutor.progress")
 local session
 
 local function progress_path()
@@ -7,24 +8,13 @@ local function progress_path()
 end
 
 local function read_progress()
-  local path = progress_path()
-  if vim.fn.filereadable(path) == 0 then
-    return 0
-  end
-  local ok, result = pcall(function()
-    return vim.json.decode(table.concat(vim.fn.readfile(path), "\n"))
-  end)
-  if ok and type(result) == "table" and type(result.completed) == "number" then
-    return math.max(0, math.min(#lessons, math.floor(result.completed)))
-  end
-  return 0
+  return progress.load(progress_path(), #lessons).guided_completed
 end
 
 local function save_progress(n)
-  local ok = pcall(function()
-    vim.fn.mkdir(vim.fn.stdpath("state"), "p")
-    vim.fn.writefile({ vim.json.encode({ completed = n }) }, progress_path())
-  end)
+  local state = progress.load(progress_path(), #lessons)
+  state.guided_completed = n
+  local ok = progress.save(progress_path(), state)
   if not ok then
     vim.notify("BoneTutor: could not save progress", vim.log.levels.WARN)
   end
@@ -104,6 +94,8 @@ local function matches(lesson)
   return true
 end
 
+local load_lesson
+
 local function check(generation)
   if not valid() or session.generation ~= generation or session.finished then
     return
@@ -121,6 +113,24 @@ local function check(generation)
   if passed ~= session.passed then
     session.passed = passed
     render()
+    if passed then
+      local completed_index = session.index
+      vim.defer_fn(function()
+        if not valid()
+          or session.generation ~= generation
+          or session.index ~= completed_index
+          or not session.passed
+        then
+          return
+        end
+        if completed_index == #lessons then
+          session.finished = true
+          render()
+        else
+          load_lesson(completed_index + 1)
+        end
+      end, 600)
+    end
   end
 end
 
@@ -173,7 +183,7 @@ local function setup_window(win, is_info)
   end
 end
 
-local function load_lesson(index)
+load_lesson = function(index)
   session.index = index
   session.passed = false
   session.finished = false
