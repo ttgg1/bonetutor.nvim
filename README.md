@@ -48,13 +48,15 @@ No mappings (even buffer-local) are installed, so this does not collide with Laz
 
 ## Exercises
 
-26 short lessons progress through:
+30 guided lessons progress through:
 
 - single-step `h/j/k/l` movements, using the actual Bone key locations;
 - `w/b/e`, `3w`, `0/$`, `gg/G`;
 - `f`, `t`, `/`, `%`, including Bone's symbol layer;
 - `dw`, `diw`, `ciw`, `dd`, `x`;
 - `o`, `A`, `yy` + `p`, `d$`, `ci"`.
+- realistic Rust and Python edits, including renaming identifiers across references,
+  removing a function-call argument, and updating a call site.
 
 The prompts state the **intent**, so you learn *what you want to do → Vim command → Bone finger position*, instead of translating through QWERTZ. Use `:BoneTutorHint` when you need the spelling or physical position.
 
@@ -73,7 +75,7 @@ Bone's layers 3 and 4 retain the Neo layer arrangements. Commands involving punc
 - **Native Vim is intentionally used:** the check verifies the final state, not how you got there. For meaningful practice, don't use arrow keys for the `hjkl` lessons. Plugins that intercept a native command may need to be disabled for the affected lesson.
 - As in VimTutor, edits use real Vim operators and registers. If your configuration maps the unnamed register to the system clipboard, `d`, `x`, and `yy` may change your clipboard. Practice in the isolated tutor buffer, but consider temporarily changing your clipboard option if this matters to you.
 - A goal involving insertion passes after you press Escape and the resulting buffer matches the target.
-- On pass, the tutor briefly shows success, then automatically loads the next lesson. Passing the final lesson shows the completion message.
+- On pass, the tutor briefly shows success, then automatically loads the next lesson. Passing the final lesson wraps to lesson 1.
 - Session progress lives at `stdpath("state")/bonetutor.json` in a versioned format. Existing `{"completed": n}` progress is migrated automatically; delete **that specific file** to restart from lesson 1, or jump to any exercise with `:BoneTutor <number>`.
 - The layout map assumes standard Bone; a custom Bone/Q/ß variant may differ in those letter positions. Nothing in the tutor changes the OS layout.
 
@@ -87,7 +89,7 @@ nvim --headless -u NONE --cmd 'set runtimepath^=.' \
 
 nvim --headless -u NONE --cmd 'set runtimepath^=.' \
   +"lua require('bonetutor').start('1')" \
-  +"lua assert(require('bonetutor').lesson_count() == 26)" \
+  +"lua assert(require('bonetutor').lesson_count() == 30)" \
   +"lua require('bonetutor').quit()" +qa
 ```
 

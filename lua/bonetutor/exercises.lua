@@ -9,14 +9,16 @@ local skills = {
   "delete_word", "delete_inside_word", "change_inside_word", "delete_line",
   "delete_character", "open_line", "append_line", "yank_paste_line",
   "delete_to_end_of_line", "change_inside_quotes",
+  "change_inside_word", "delete_inside_word", "change_inside_word", "change_inside_word",
 }
 
 function M.list()
   local result = {}
   for index, lesson in ipairs(lessons) do
     result[#result + 1] = {
-      id = ("guided_%02d"):format(index),
-      skill = skills[index],
+      id = lesson.id or ("guided_%02d"):format(index),
+      skill = lesson.skill or skills[index],
+      language = lesson.language,
       prerequisites = {},
       lesson_index = index,
       lines = lesson.lines,

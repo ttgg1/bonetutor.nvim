@@ -39,8 +39,8 @@ Exercise scheduled validation around reset, next, buffer wipe, and tab close.
 - Clipboard/register settings and global mappings/options are unchanged by session
   start/quit.
 - Session cleanup is safe after a queued watcher callback.
-- Passing an exercise briefly shows success and then advances automatically; the final
-  exercise displays completion.
+- Passing an exercise briefly shows success and then advances automatically; passing the
+  final exercise wraps to lesson 1.
 
 **Verification:** Run the suite from BT-01 and the documented start/quit smoke command.
 
@@ -65,7 +65,7 @@ migration, and persistence; preserve `stdpath("state")/bonetutor.json`.
 **Scope:** Add `lua/bonetutor/exercises.lua`; annotate existing guided lessons with
 stable skill IDs and introduce a small set of distinct fixtures for common weak skills.
 
-The catalog assigns stable IDs to all 26 guided lessons and adds distinct word-motion,
+The catalog assigns stable IDs to all 30 guided lessons and adds distinct word-motion,
 delete-inside-word, and change-inside-word variants. The adaptive controller that
 selects these definitions is BT-06.
 
@@ -145,7 +145,8 @@ relevant modifier-layer labels, and current-command highlighting.
 **Depends on:** BT-07, BT-08
 
 **Scope:** Separately assess dashboard, free practice, alternate Bone variants,
-QWERTZ comparison, `hjkl`-reduced drills, and realistic language snippets.
+QWERTZ comparison, and `hjkl`-reduced drills. Realistic Rust/Python snippets are now
+included in the guided sequence.
 
 **Acceptance criteria**
 

@@ -172,4 +172,80 @@ return {
     lines = { 'local name = "old"' }, start = { 1, 16 },
     target = { lines = { 'local name = "new"' } },
   },
+  {
+    group = "08 · Real-world Rust", title = "Rename a function and its call",
+    language = "rust", skill = "change_inside_word",
+    goal = "Rename total to sum in both the definition and the call.",
+    hint = "Use ciw on each `total`, type sum, and press Escape after each change.",
+    lines = {
+      "fn total(items: &[i32]) -> i32 {",
+      "    let result = total(&[1, 2, 3]);",
+      "    result",
+      "}",
+    },
+    start = { 1, 4 },
+    target = {
+      lines = {
+        "fn sum(items: &[i32]) -> i32 {",
+        "    let result = sum(&[1, 2, 3]);",
+        "    result",
+        "}",
+      },
+    },
+  },
+  {
+    group = "08 · Real-world Rust", title = "Remove a call argument",
+    language = "rust", skill = "delete_inside_word",
+    goal = "Remove the port argument from connect(host, port, timeout).",
+    hint = "On `port`, use daw, then x to remove the adjacent comma.",
+    lines = {
+      "fn connect(host: &str, port: u16, timeout: u64) {",
+      "    let client = connect(host, port, timeout);",
+      "}",
+    },
+    start = { 2, 32 },
+    target = {
+      lines = {
+        "fn connect(host: &str, port: u16, timeout: u64) {",
+        "    let client = connect(host, timeout);",
+        "}",
+      },
+    },
+  },
+  {
+    group = "09 · Real-world Python", title = "Rename a parameter and its use",
+    language = "python", skill = "change_inside_word",
+    goal = "Rename the name parameter to username in the definition and return value.",
+    hint = "Use ciw on each `name`, type username, and press Escape after each change.",
+    lines = {
+      "def format_user(name, active):",
+      "    return f\"{name}: {active}\"",
+    },
+    start = { 1, 18 },
+    target = {
+      lines = {
+        "def format_user(username, active):",
+        "    return f\"{username}: {active}\"",
+      },
+    },
+  },
+  {
+    group = "09 · Real-world Python", title = "Update a call argument",
+    language = "python", skill = "change_inside_word",
+    goal = "Pass config_path to read_file instead of path.",
+    hint = "On the call argument, use ciw, type config_path, then press Escape.",
+    lines = {
+      "def load_config(path):",
+      "    data = read_file(path)",
+      "    return parse_config(data)",
+    },
+    start = { 2, 22 },
+    target = {
+      lines = {
+        "def load_config(path):",
+        "    data = read_file(config_path)",
+        "    return parse_config(data)",
+      },
+    },
+  },
 }

@@ -78,6 +78,52 @@ for _, exercise in ipairs(catalog) do
   check(position_is_valid(exercise.start, exercise.lines), exercise.id .. " has a valid start position")
 end
 check(by_id.word_forward_variant_02 ~= nil, "word motion has a distinct exercise variant")
+check(
+  #catalog > #lessons,
+  "exercise catalog includes additional challenges beyond the guided lessons"
+)
+local language_exercises = {}
+for _, exercise in ipairs(catalog) do
+  if exercise.language == "rust" or exercise.language == "python" then
+    language_exercises[exercise.language] = language_exercises[exercise.language] or {}
+    table.insert(language_exercises[exercise.language], exercise)
+  end
+end
+check(language_exercises.rust and #language_exercises.rust >= 2, "catalog includes multiple Rust exercises")
+check(language_exercises.python and #language_exercises.python >= 2, "catalog includes multiple Python exercises")
+for language, language_catalog in pairs(language_exercises) do
+  for _, exercise in ipairs(language_catalog) do
+    check(exercise.target and exercise.target.lines, exercise.id .. " has deterministic buffer validation")
+    check(exercise.prompt and exercise.prompt ~= "", exercise.id .. " has a task prompt")
+    check(exercise.hint and exercise.hint ~= "", exercise.id .. " has a command hint")
+    check(
+      #exercise.target.lines == #exercise.lines,
+      exercise.id .. " preserves the snippet's line count"
+    )
+    local commands = {
+      guided_27 = "ciwsum<Esc>j0f=wciwsum<Esc>",
+      guided_28 = "dawx",
+      guided_29 = "ciwusername<Esc>j0f{wciwusername<Esc>",
+      guided_30 = "ciwconfig_path<Esc>",
+    }
+    local command = commands[exercise.id]
+    check(command ~= nil, exercise.id .. " has an executable command test")
+    if command then
+      vim.cmd("enew!")
+      vim.bo.buftype = "nofile"
+      vim.bo.bufhidden = "wipe"
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, exercise.lines)
+      vim.api.nvim_win_set_cursor(0, { exercise.start[1], exercise.start[2] - 1 })
+      local input = vim.api.nvim_replace_termcodes(command, true, false, true)
+      vim.api.nvim_feedkeys(input, "xt", false)
+      check(
+        vim.deep_equal(vim.api.nvim_buf_get_lines(0, 0, -1, false), exercise.target.lines),
+        exercise.id .. " reaches its target using real Vim commands"
+      )
+      vim.bo.modified = false
+    end
+  end
+end
 local deterministic_a = scheduler.next({ skills = {} }, exercises, 20, 7)
 local deterministic_b = scheduler.next({ skills = {} }, exercises, 20, 7)
 check(deterministic_a.id == deterministic_b.id, "scheduler selection is deterministic for a seed")
@@ -86,7 +132,15 @@ check(
   "scheduler returns no exercise when all are not due"
 )
 
-check(#lessons == 26, ("expected 26 lessons, got %d"):format(#lessons))
+check(#lessons == 30, ("expected 30 lessons, got %d"):format(#lessons))
+local guided_languages = {}
+for _, lesson in ipairs(lessons) do
+  if lesson.language then
+    guided_languages[lesson.language] = (guided_languages[lesson.language] or 0) + 1
+  end
+end
+check(guided_languages.rust and guided_languages.rust >= 2, "guided sequence contains multiple Rust exercises")
+check(guided_languages.python and guided_languages.python >= 2, "guided sequence contains multiple Python exercises")
 
 for index, lesson in ipairs(lessons) do
   local label = ("lesson %d (%s)"):format(index, tostring(lesson.title))
@@ -115,6 +169,8 @@ local keys = {
   "h", "l", "j", "k", "w", "b", "e", "3w", "0", "$", "gg", "G",
   "fx", "t:", "/comet<CR>", "%", "dw", "diw", "ciwnew<Esc>", "dd",
   "x", "obeta<Esc>", "A!<Esc>", "yyp", "d$", 'ci"new<Esc>',
+  "ciwsum<Esc>j0f=wciwsum<Esc>", "dawx",
+  "ciwusername<Esc>j0f{wciwusername<Esc>", "ciwconfig_path<Esc>",
 }
 
 local function inspect_exercise(index)
@@ -155,18 +211,18 @@ for index, lesson in ipairs(lessons) do
     vim.wait(1000, function()
       local lines = vim.api.nvim_buf_get_lines(info_buf, 0, -1, false)
       local content = table.concat(lines, "\n")
-      return content:find((" %02d/26 "):format(index + 1), 1, true) ~= nil
+      return content:find((" %02d/%02d "):format(index + 1, #lessons), 1, true) ~= nil
         or (index == #lessons and content:find("ALL DONE!", 1, true) ~= nil)
     end, 5)
     local panel = table.concat(vim.api.nvim_buf_get_lines(info_buf, 0, -1, false), "\n")
     if index < #lessons then
       check(
-        panel:find((" %02d/26 "):format(index + 1), 1, true) ~= nil,
+        panel:find((" %02d/%02d "):format(index + 1, #lessons), 1, true) ~= nil,
         ("lesson %d automatically advances after passing"):format(index)
       )
     else
       check(
-        panel:find((" %02d/26 "):format(1), 1, true) ~= nil,
+        panel:find((" %02d/%02d "):format(1, #lessons), 1, true) ~= nil,
         "final lesson automatically wraps to lesson 1"
       )
     end
@@ -238,10 +294,10 @@ local last_key = vim.api.nvim_replace_termcodes(keys[#lessons], true, false, tru
 vim.api.nvim_feedkeys(last_key, "xt", false)
 vim.api.nvim_exec_autocmds("CursorMoved", { buffer = exercise_buf })
 vim.wait(1000, function()
-  return table.concat(vim.api.nvim_buf_get_lines(info_buf, 0, -1, false), "\n"):find("ALL DONE!", 1, true) ~= nil
+  return table.concat(vim.api.nvim_buf_get_lines(info_buf, 0, -1, false), "\n")
+    :find(("01/%02d"):format(#lessons), 1, true) ~= nil
 end, 5)
-vim.wait(700)
-check(table.concat(vim.api.nvim_buf_get_lines(info_buf, 0, -1, false), "\n"):find("01/26", 1, true) ~= nil,
+check(table.concat(vim.api.nvim_buf_get_lines(info_buf, 0, -1, false), "\n"):find(("01/%02d"):format(#lessons), 1, true) ~= nil,
   "final lesson returns to lesson 1")
 check(vim.deep_equal(vim.api.nvim_buf_get_lines(exercise_buf, 0, -1, false), lessons[1].lines),
   "completing the final lesson wraps around to lesson 1")
