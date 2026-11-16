@@ -46,6 +46,36 @@ local saved = { version = 2, guided_completed = 4, skills = {} }
 check(progress.save(progress_file, saved), "progress saves to the requested path")
 check(progress.load(progress_file, #lessons).guided_completed == 4, "saved progress reloads")
 check(not progress.save("/proc/bonetutor/progress.json", saved), "progress reports an unwritable destination")
+check(type(progress.record_attempt) == "function", "progress exposes skill outcome recording")
+if progress.record_attempt then
+  local tracked = progress.record_attempt(saved, "word_forward", "guided_05", "success", {
+    hint_used = true,
+    duration_seconds = 17,
+  }, 1000)
+  local word_record = tracked.skills.word_forward
+  check(word_record.attempts == 1 and word_record.successes == 1, "success outcome increments skill counters")
+  check(word_record.failures == 0 and word_record.hints == 1, "outcome records failure and hint counters")
+  check(word_record.last_practiced == 1000 and word_record.last_variant == "guided_05", "outcome records timestamp and variant")
+  check(word_record.recent[1].duration_seconds == 17, "outcome records elapsed duration")
+  check(word_record.recent[1].outcome == "success", "outcome history stores the result")
+  for attempt = 1, 25 do
+    progress.record_attempt(tracked, "word_forward", "guided_05", "failure", {}, 1000 + attempt)
+  end
+  check(#tracked.skills.word_forward.recent == 20, "skill outcome history is bounded to 20 entries")
+end
+vim.fn.writefile({ vim.json.encode({
+  version = 2,
+  guided_completed = 3,
+  skills = {
+    valid = { attempts = 3, successes = 2, failures = 1, proficiency = 0.6 },
+    malformed = "not a skill record",
+  },
+}) }, progress_file)
+migrated = progress.load(progress_file, #lessons)
+check(migrated.skills.valid and migrated.skills.valid.attempts == 3, "valid skill records load")
+check(migrated.skills.malformed == nil, "malformed skill records are discarded")
+dofile("plugin/bonetutor.lua")
+check(vim.fn.exists(":BoneTutorPractice") == 2, "adaptive practice command is registered")
 local exercises = {
   { id = "word-a", skill = "word", prerequisites = {} },
   { id = "word-b", skill = "word", prerequisites = {} },
@@ -309,6 +339,65 @@ check(vim.deep_equal(vim.api.nvim_buf_get_lines(exercise_buf, 0, -1, false), les
 tutor.quit()
 vim.wait(50)
 check(not vim.api.nvim_tabpage_is_valid(tab), "quit closes the tutor tab")
+
+if vim.fn.exists(":BoneTutorPractice") == 2 then
+vim.cmd("BoneTutorPractice")
+local adaptive_tab = vim.api.nvim_get_current_tabpage()
+exercise_buf = nil
+info_buf = nil
+for _, win in ipairs(vim.api.nvim_tabpage_list_wins(adaptive_tab)) do
+  local buf = vim.api.nvim_win_get_buf(win)
+  if vim.bo[buf].modifiable then
+    exercise_buf = buf
+  else
+    info_buf = buf
+  end
+end
+check(exercise_buf ~= nil and info_buf ~= nil, "adaptive command opens the practice session")
+local adaptive_panel = table.concat(vim.api.nvim_buf_get_lines(info_buf, 0, -1, false), "\n")
+local adaptive_id = adaptive_panel:match("Adaptive Practice  ·  ([%w_%-]+)")
+local adaptive_exercise = by_id[adaptive_id]
+check(adaptive_exercise ~= nil, "adaptive session displays its selected exercise")
+if adaptive_exercise then
+  tutor.reset()
+  local stored_path = vim.fn.stdpath("state") .. "/bonetutor.json"
+  local after_reset = progress.load(stored_path, #lessons)
+  local after_reset_record = after_reset.skills[adaptive_exercise.skill]
+  check(
+    after_reset_record and after_reset_record.failures >= 1,
+    "resetting an adaptive exercise records a failed attempt"
+  )
+  local previous_successes = after_reset_record and after_reset_record.successes or 0
+  local previous_hints = after_reset_record and after_reset_record.hints or 0
+  tutor.hint()
+  vim.api.nvim_buf_set_lines(exercise_buf, 0, -1, false, adaptive_exercise.target.lines or adaptive_exercise.lines)
+  if adaptive_exercise.target.cursor then
+    vim.api.nvim_win_set_cursor(0, {
+      adaptive_exercise.target.cursor[1],
+      adaptive_exercise.target.cursor[2] - 1,
+    })
+  end
+  vim.api.nvim_exec_autocmds("TextChanged", { buffer = exercise_buf })
+  vim.wait(1000, function()
+    local current = progress.load(stored_path, #lessons).skills[adaptive_exercise.skill]
+    return current and current.successes > previous_successes
+  end, 5)
+  local after_success = progress.load(stored_path, #lessons).skills[adaptive_exercise.skill]
+  check(after_success and after_success.successes > previous_successes, "passing an adaptive exercise records success")
+  check(after_success and after_success.hints > previous_hints, "adaptive attempt records hint usage")
+  check(
+    after_success and after_success.recent[#after_success.recent].duration_seconds >= 0,
+    "adaptive attempt records elapsed time"
+  )
+  check(
+    after_success and after_success.recent[#after_success.recent].raw_keystrokes == nil,
+    "adaptive history stores no raw keystrokes"
+  )
+end
+tutor.quit()
+vim.wait(50)
+end
+
 check(vim.deep_equal(keymaps_before.n, vim.api.nvim_get_keymap("n")), "normal mappings are unchanged")
 check(vim.deep_equal(keymaps_before.i, vim.api.nvim_get_keymap("i")), "insert mappings are unchanged")
 check(vim.deep_equal(keymaps_before.v, vim.api.nvim_get_keymap("v")), "visual mappings are unchanged")

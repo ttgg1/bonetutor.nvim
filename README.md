@@ -20,7 +20,7 @@ It opens a separate tab with a read-only goal panel above a real practice buffer
        dir = vim.fn.stdpath("config") .. "/local/bonetutor.nvim",
        name = "bonetutor.nvim",
        cmd = {
-         "BoneTutor", "BoneTutorNext", "BoneTutorPrev", "BoneTutorReset",
+          "BoneTutor", "BoneTutorPractice", "BoneTutorNext", "BoneTutorPrev", "BoneTutorReset",
          "BoneTutorHint", "BoneTutorKeys", "BoneTutorQuit",
        },
      },
@@ -37,6 +37,7 @@ If you use plain Neovim instead of LazyVim, you can put the unpacked plugin at `
 | --- | --- |
 | `:BoneTutor` | Start or resume the first unfinished lesson. Focus an existing tutor if it is already open. |
 | `:BoneTutor 5` | Jump to lesson 5. |
+| `:BoneTutorPractice` | Start adaptive practice based on skill outcomes and review due dates. |
 | `:BoneTutorHint` | Show/hide the Bone-specific key position hint. |
 | `:BoneTutorKeys` | Show/hide the standard Bone layer-1 letter rows. |
 | `:BoneTutorNext` | Advance manually; passing a lesson also advances automatically after a brief success message. |
@@ -54,7 +55,7 @@ No mappings (even buffer-local) are installed, so this does not collide with Laz
 - `w/b/e`, `3w`, `0/$`, `gg/G`;
 - `f`, `t`, `/`, `%`, including Bone's symbol layer;
 - `dw`, `diw`, `ciw`, `dd`, `x`;
-- `o`, `A`, `yy` + `p`, `d$`, `ci"`.
+- `o`, `A`, `yy` + `p`, `d$`, `ci"`;
 - realistic Rust and Python edits, including renaming identifiers across references,
   removing a function-call argument, and updating a call site.
 
@@ -76,6 +77,7 @@ Bone's layers 3 and 4 retain the Neo layer arrangements. Commands involving punc
 - As in VimTutor, edits use real Vim operators and registers. If your configuration maps the unnamed register to the system clipboard, `d`, `x`, and `yy` may change your clipboard. Practice in the isolated tutor buffer, but consider temporarily changing your clipboard option if this matters to you.
 - A goal involving insertion passes after you press Escape and the resulting buffer matches the target.
 - On pass, the tutor briefly shows success, then automatically loads the next lesson. Passing the final lesson wraps to lesson 1.
+- Adaptive practice selects among the guided catalog and variants, recording pass/reset outcomes, hint use, and elapsed seconds per skill. It stores no raw keystrokes.
 - Session progress lives at `stdpath("state")/bonetutor.json` in a versioned format. Existing `{"completed": n}` progress is migrated automatically; delete **that specific file** to restart from lesson 1, or jump to any exercise with `:BoneTutor <number>`.
 - The layout map assumes standard Bone; a custom Bone/Q/ß variant may differ in those letter positions. Nothing in the tutor changes the OS layout.
 

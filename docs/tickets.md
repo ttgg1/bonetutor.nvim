@@ -97,7 +97,7 @@ state are wired by BT-06.
 - Tests cover due reviews, weak-skill priority, prerequisites, deterministic selection,
   variant diversity, and no-eligible-exercise behavior.
 
-## BT-06 — Record outcomes and expose adaptive practice (P1)
+## BT-06 — Record outcomes and expose adaptive practice (P1) — complete
 
 **Depends on:** BT-02, BT-03, BT-04, BT-05
 
@@ -111,6 +111,10 @@ Add a dedicated adaptive-practice command while preserving `:BoneTutor` guided/r
 - Guided lessons and numeric lesson selection retain current behavior.
 - Adaptive sessions use the scheduler and can be quit/restarted safely.
 - No key mappings or global option changes are installed.
+
+Skill records use bounded, sanitized outcome history, Bayesian-smoothed success
+proficiency, and review intervals. `:BoneTutorPractice` selects from the catalog;
+guided lessons remain available through `:BoneTutor`.
 
 ## BT-07 — Improve Bone layout hints (P2)
 

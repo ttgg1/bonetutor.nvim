@@ -1,21 +1,28 @@
 local M = {}
 local lessons = require("bonetutor.lessons")
 local progress = require("bonetutor.progress")
+local catalog = require("bonetutor.exercises").list()
+local scheduler = require("bonetutor.scheduler")
 local session
 
 local function progress_path()
   return vim.fn.stdpath("state") .. "/bonetutor.json"
 end
 
-local function read_progress()
-  return progress.load(progress_path(), #lessons).guided_completed
+local function read_state()
+  return progress.load(progress_path(), #lessons)
 end
 
 local function save_progress(n)
-  local state = progress.load(progress_path(), #lessons)
-  state.guided_completed = n
-  local ok = progress.save(progress_path(), state)
+  session.state.guided_completed = n
+  local ok = progress.save(progress_path(), session.state)
   if not ok then
+    vim.notify("BoneTutor: could not save progress", vim.log.levels.WARN)
+  end
+end
+
+local function save_state()
+  if not progress.save(progress_path(), session.state) then
     vim.notify("BoneTutor: could not save progress", vim.log.levels.WARN)
   end
 end
@@ -34,7 +41,7 @@ local function render()
     return
   end
 
-  local lesson = lessons[session.index]
+  local lesson = session.current_lesson
   local status
   if session.finished then
     status = "ALL DONE!  :BoneTutorQuit closes the training tab."
@@ -44,8 +51,19 @@ local function render()
     status = "Try it below using normal Vim keys. Then check the result here."
   end
 
+  local heading
+  if session.mode == "practice" then
+    heading = ("BoneTutor Adaptive Practice  ·  %s"):format(session.exercise.id)
+  else
+    heading = ("BoneTutor  %02d/%02d   [completed: %02d/%02d]"):format(
+      session.index,
+      #lessons,
+      session.completed,
+      #lessons
+    )
+  end
   local lines = {
-    ("BoneTutor  %02d/%02d   [completed: %02d/%02d]"):format(session.index, #lessons, session.completed, #lessons),
+    heading,
     lesson.group .. "  /  " .. lesson.title,
     "Goal: " .. lesson.goal,
     status,
@@ -95,6 +113,47 @@ local function matches(lesson)
 end
 
 local load_lesson
+local load_practice
+
+local function record_attempt(outcome)
+  if not session or session.attempt_recorded or not session.skill then
+    return
+  end
+  session.state = progress.record_attempt(
+    session.state,
+    session.skill,
+    session.exercise.id,
+    outcome,
+    {
+      hint_used = session.hints_used > 0,
+      duration_seconds = math.max(0, os.time() - session.started_at),
+    },
+    os.time()
+  )
+  session.attempt_recorded = true
+  save_state()
+end
+
+local function choose_practice()
+  session.selection_count = session.selection_count + 1
+  local now = os.time()
+  local seed = session.selection_count
+  local selected = scheduler.next(session.state, catalog, now, seed)
+  if not selected then
+    -- Reviews that are not due yet are still usable when there are no due tasks.
+    selected = scheduler.next(session.state, catalog, math.huge, seed)
+  end
+  if not selected then
+    -- Keep practice available even when every compound skill is still locked.
+    for _, exercise in ipairs(catalog) do
+      if #(exercise.prerequisites or {}) == 0 then
+        selected = exercise
+        break
+      end
+    end
+  end
+  return selected or catalog[1]
+end
 
 local function check(generation)
   if not valid() or session.generation ~= generation or session.finished then
@@ -104,11 +163,14 @@ local function check(generation)
     return
   end
 
-  local passed = matches(lessons[session.index])
-  -- Track the completed PREFIX, not the highest arbitrary lesson jump.
-  if passed and session.index == session.completed + 1 then
-    session.completed = session.index
-    save_progress(session.completed)
+  local passed = matches(session.current_lesson)
+  if passed then
+    record_attempt("success")
+    if session.mode == "guided" and session.index == session.completed + 1 then
+      -- Track the completed PREFIX, not the highest arbitrary lesson jump.
+      session.completed = session.index
+      save_progress(session.completed)
+    end
   end
   if passed ~= session.passed then
     session.passed = passed
@@ -123,7 +185,11 @@ local function check(generation)
         then
           return
         end
-        load_lesson(completed_index % #lessons + 1)
+        if session.mode == "practice" then
+          load_practice(choose_practice())
+        else
+          load_lesson(completed_index % #lessons + 1)
+        end
       end, 600)
     end
   end
@@ -179,10 +245,17 @@ local function setup_window(win, is_info)
 end
 
 load_lesson = function(index)
+  session.mode = "guided"
   session.index = index
+  session.exercise = catalog[index]
+  session.current_lesson = lessons[index]
+  session.skill = session.exercise.skill
   session.passed = false
   session.finished = false
   session.hint = false
+  session.hints_used = 0
+  session.started_at = os.time()
+  session.attempt_recorded = false
   session.generation = session.generation + 1
 
   local lesson = lessons[index]
@@ -192,6 +265,71 @@ load_lesson = function(index)
   vim.api.nvim_set_current_win(session.exercise_win)
   vim.api.nvim_win_set_cursor(session.exercise_win, { lesson.start[1], lesson.start[2] - 1 })
   render()
+end
+
+load_practice = function(exercise)
+  session.mode = "practice"
+  session.exercise = exercise
+  session.index = session.selection_count
+  session.skill = exercise.skill
+  session.current_lesson = {
+    group = "Adaptive practice",
+    title = exercise.id,
+    goal = exercise.prompt,
+    hint = exercise.hint,
+    lines = exercise.lines,
+    start = exercise.start,
+    target = exercise.target,
+  }
+  session.passed = false
+  session.finished = false
+  session.hint = false
+  session.hints_used = 0
+  session.started_at = os.time()
+  session.attempt_recorded = false
+  session.generation = session.generation + 1
+  vim.bo[session.exercise_buf].modifiable = true
+  vim.api.nvim_buf_set_lines(session.exercise_buf, 0, -1, false, exercise.lines)
+  vim.bo[session.exercise_buf].modified = false
+  vim.api.nvim_set_current_win(session.exercise_win)
+  vim.api.nvim_win_set_cursor(session.exercise_win, { exercise.start[1], exercise.start[2] - 1 })
+  render()
+end
+
+local function open_session()
+  local state = read_state()
+  vim.cmd("tabnew")
+  local tab = vim.api.nvim_get_current_tabpage()
+  local exercise_win = vim.api.nvim_get_current_win()
+  local exercise_buf = vim.api.nvim_get_current_buf()
+  setup_buffer(exercise_buf, true)
+  setup_window(exercise_win, false)
+
+  vim.cmd("topleft 8new")
+  local info_win = vim.api.nvim_get_current_win()
+  local info_buf = vim.api.nvim_get_current_buf()
+  setup_buffer(info_buf, false)
+  setup_window(info_win, true)
+
+  session = {
+    tab = tab,
+    exercise_buf = exercise_buf,
+    exercise_win = exercise_win,
+    info_buf = info_buf,
+    info_win = info_win,
+    index = 1,
+    completed = state.guided_completed,
+    state = state,
+    selection_count = 0,
+    generation = 0,
+    passed = false,
+    hint = false,
+    hints_used = 0,
+    show_keys = false,
+    finished = false,
+    started_at = os.time(),
+  }
+  install_watcher()
 end
 
 function M.start(argument)
@@ -214,36 +352,23 @@ function M.start(argument)
     return
   end
 
-  local completed = read_progress()
-  vim.cmd("tabnew")
-  local tab = vim.api.nvim_get_current_tabpage()
-  local exercise_win = vim.api.nvim_get_current_win()
-  local exercise_buf = vim.api.nvim_get_current_buf()
-  setup_buffer(exercise_buf, true)
-  setup_window(exercise_win, false)
+  open_session()
+  load_lesson(number or math.min(session.completed + 1, #lessons))
+end
 
-  vim.cmd("topleft 8new")
-  local info_win = vim.api.nvim_get_current_win()
-  local info_buf = vim.api.nvim_get_current_buf()
-  setup_buffer(info_buf, false)
-  setup_window(info_win, true)
-
-  session = {
-    tab = tab,
-    exercise_buf = exercise_buf,
-    exercise_win = exercise_win,
-    info_buf = info_buf,
-    info_win = info_win,
-    index = 1,
-    completed = completed,
-    generation = 0,
-    passed = false,
-    hint = false,
-    show_keys = false,
-    finished = false,
-  }
-  install_watcher()
-  load_lesson(number or math.min(completed + 1, #lessons))
+function M.practice()
+  if not valid() then
+    open_session()
+  else
+    if not session.passed then
+      record_attempt("failure")
+    end
+    vim.api.nvim_set_current_tabpage(session.tab)
+  end
+  session.state = read_state()
+  session.completed = session.state.guided_completed
+  session.selection_count = 0
+  load_practice(choose_practice())
 end
 
 local function active()
@@ -264,7 +389,11 @@ function M.next()
   elseif not session.passed then
     vim.notify("BoneTutor: complete the goal before advancing (or :BoneTutor <number>)", vim.log.levels.INFO)
   else
-    load_lesson(session.index % #lessons + 1)
+    if session.mode == "practice" then
+      load_practice(choose_practice())
+    else
+      load_lesson(session.index % #lessons + 1)
+    end
   end
 end
 
@@ -276,13 +405,23 @@ end
 
 function M.reset()
   if active() then
-    load_lesson(session.index)
+    if not session.passed then
+      record_attempt("failure")
+    end
+    if session.mode == "practice" then
+      load_practice(session.exercise)
+    else
+      load_lesson(session.index)
+    end
   end
 end
 
 function M.hint()
   if active() then
     session.hint = not session.hint
+    if session.hint then
+      session.hints_used = session.hints_used + 1
+    end
     render()
   end
 end
@@ -300,6 +439,9 @@ function M.quit()
   end
   -- Our buffers contain disposable drills, not user files. Leave any other
   -- windows in the tab to Neovim's normal unsaved-changes protection.
+  if session.mode == "practice" and not session.passed then
+    record_attempt("failure")
+  end
   vim.bo[session.exercise_buf].modified = false
   vim.bo[session.info_buf].modified = false
   local ok, err = pcall(vim.cmd, "tabclose")
