@@ -27,6 +27,7 @@ end
 local progress = require("bonetutor.progress")
 local scheduler = require("bonetutor.scheduler")
 local exercise_catalog = require("bonetutor.exercises")
+local layouts = require("bonetutor.layouts")
 local progress_file = vim.fn.tempname()
 local migrated = progress.load(progress_file, #lessons)
 check(migrated.version == 2 and migrated.guided_completed == 0, "missing progress starts at version 2")
@@ -46,6 +47,37 @@ local saved = { version = 2, guided_completed = 4, skills = {} }
 check(progress.save(progress_file, saved), "progress saves to the requested path")
 check(progress.load(progress_file, #lessons).guided_completed == 4, "saved progress reloads")
 check(not progress.save("/proc/bonetutor/progress.json", saved), "progress reports an unwritable destination")
+check(type(progress.record_attempt) == "function", "progress exposes skill outcome recording")
+if progress.record_attempt then
+  local tracked = progress.record_attempt(saved, "word_forward", "guided_05", "success", {
+    hint_used = true,
+    duration_seconds = 17,
+  }, 1000)
+  local word_record = tracked.skills.word_forward
+  check(word_record.attempts == 1 and word_record.successes == 1, "success outcome increments skill counters")
+  check(word_record.failures == 0 and word_record.hints == 1, "outcome records failure and hint counters")
+  check(word_record.last_practiced == 1000 and word_record.last_variant == "guided_05", "outcome records timestamp and variant")
+  check(word_record.recent[1].duration_seconds == 17, "outcome records elapsed duration")
+  check(word_record.recent[1].outcome == "success", "outcome history stores the result")
+  for attempt = 1, 25 do
+    progress.record_attempt(tracked, "word_forward", "guided_05", "failure", {}, 1000 + attempt)
+  end
+  check(#tracked.skills.word_forward.recent == 20, "skill outcome history is bounded to 20 entries")
+end
+vim.fn.writefile({ vim.json.encode({
+  version = 2,
+  guided_completed = 3,
+  skills = {
+    valid = { attempts = 3, successes = 2, failures = 1, proficiency = 0.6 },
+    malformed = "not a skill record",
+  },
+}) }, progress_file)
+migrated = progress.load(progress_file, #lessons)
+check(migrated.skills.valid and migrated.skills.valid.attempts == 3, "valid skill records load")
+check(migrated.skills.malformed == nil, "malformed skill records are discarded")
+dofile("plugin/bonetutor.lua")
+check(vim.fn.exists(":BoneTutorPractice") == 2, "adaptive practice command is registered")
+check(vim.fn.exists(":BoneTutorDaily") == 2, "daily challenge command is registered")
 local exercises = {
   { id = "word-a", skill = "word", prerequisites = {} },
   { id = "word-b", skill = "word", prerequisites = {} },
@@ -69,13 +101,106 @@ selection = scheduler.next({
   skills = { word = { proficiency = 0.9, due_at = 100, mastered = true } },
 }, exercises, 20, 1)
 check(selection and selection.skill == "compound", "scheduler unlocks compounds after mastery")
+check(type(scheduler.daily) == "function", "scheduler exposes daily sequence selection")
+if scheduler.daily then
+  local daily_exercises = {
+    { id = "review_word", skill = "word", prerequisites = {} },
+    { id = "review_line", skill = "line", prerequisites = {} },
+    { id = "new_alpha", skill = "alpha", prerequisites = {} },
+    { id = "new_beta", skill = "beta", prerequisites = {} },
+    { id = "new_gamma", skill = "gamma", prerequisites = {} },
+    { id = "locked", skill = "locked", prerequisites = { "missing" } },
+  }
+  local daily_state = {
+    skills = {
+      word = { proficiency = 0.4, due_at = 10 },
+      line = { proficiency = 0.7, due_at = 20 },
+    },
+  }
+  local daily_a = scheduler.daily(daily_state, daily_exercises, 30, 11, 5)
+  local daily_b = scheduler.daily(daily_state, daily_exercises, 30, 11, 5)
+  local function exercise_ids(sequence)
+    return vim.tbl_map(function(exercise)
+      return exercise.id
+    end, sequence)
+  end
+  check(
+    vim.deep_equal(exercise_ids(daily_a), exercise_ids(daily_b)),
+    "daily selection is stable for the same state, time, seed, and limit"
+  )
+  check(daily_a[1] and daily_a[1].skill == "word", "daily selection puts due reviews first")
+  local new_skills = {}
+  for _, exercise in ipairs(daily_a) do
+    if not daily_state.skills[exercise.skill] then
+      new_skills[exercise.skill] = true
+    end
+  end
+  check(vim.tbl_count(new_skills) <= 2, "daily selection includes at most two new skills")
+  check(#daily_a <= 5, "daily selection respects its exercise limit")
+  local future = scheduler.daily(
+    { skills = { later = { proficiency = 0.8, due_at = 200 } } },
+    { { id = "later_review", skill = "later", prerequisites = {} } },
+    100,
+    1,
+    5
+  )
+  check(future[1] and future[1].id == "later_review",
+    "daily selection falls back to the earliest future review when nothing is due")
+  check(
+    #scheduler.daily(
+      { skills = {} },
+      { { id = "locked", skill = "locked", prerequisites = { "unknown" } } },
+      100,
+      1,
+      5
+    ) == 0,
+    "daily selection returns an empty sequence when every exercise is prerequisite-locked"
+  )
+end
 local catalog = exercise_catalog.list()
+check(
+  vim.deep_equal(layouts.standard.layers[1].rows, {
+    { "j", "d", "u", "a", "x" },
+    { "p", "h", "l", "m", "w", "q" },
+    { "c", "t", "i", "e", "o" },
+    { "b", "n", "r", "s", "g", "ß" },
+    { "f", "v", "ü", "ä", "ö" },
+    { "y", "z", ",", ".", "k" },
+  }),
+  "standard Bone layer 1 exposes the documented left/right letter rows"
+)
+local symbol_locations = {}
+for _, location in ipairs(layouts.describe({ "h", "$", "/", ":", "%" }, layouts.standard)) do
+  symbol_locations[location.key] = location
+end
+check(symbol_locations.h and symbol_locations.h.layer == 1, "letter lookup identifies layer 1")
+check(symbol_locations["$"] and symbol_locations["$"].layer == 3, "dollar lookup identifies Mod3")
+check(symbol_locations["/"] and symbol_locations["/"].layer == 3, "slash lookup identifies Mod3")
+check(symbol_locations[":"] and symbol_locations[":"].layer == 3, "colon lookup identifies Mod3")
+check(symbol_locations["%"] and symbol_locations["%"].layer == 3, "percent lookup identifies Mod3")
+check(#layouts.describe({}, layouts.standard) == 0, "empty key list has no highlights")
+check(#layouts.describe({ "unknown-key" }, layouts.standard) == 0, "unknown key has no highlight")
+local displayed_locations = {}
+for _, location in ipairs(layouts.describe({ "h", "$" }, layouts.standard)) do
+  displayed_locations[location.key] = location
+end
+check(
+  displayed_locations.h.row == 1
+    and displayed_locations.h.hand == "right"
+    and displayed_locations.h.column == 2,
+  "top-row h lookup includes its layer-1 hand and location"
+)
+check(displayed_locations["$"].modifier == "Mod3",
+  "symbol lookup names the logical modifier layer")
 check(#catalog >= #lessons, "exercise catalog includes every guided lesson")
 local by_id = {}
 for _, exercise in ipairs(catalog) do
   by_id[exercise.id] = exercise
   check(type(exercise.skill) == "string", exercise.id .. " has a stable skill")
   check(position_is_valid(exercise.start, exercise.lines), exercise.id .. " has a valid start position")
+  if exercise.id == "guided_10" then
+    check(vim.deep_equal(exercise.keys, { "$" }), "end-of-line exercise declares the symbol key it teaches")
+  end
 end
 check(by_id.word_forward_variant_02 ~= nil, "word motion has a distinct exercise variant")
 check(
@@ -232,6 +357,15 @@ local tutor = require("bonetutor")
 tutor.quit()
 vim.wait(50)
 
+tutor.start("10")
+tutor.keys()
+local _, key_panel_buf = inspect_exercise(10)
+local key_panel = table.concat(vim.api.nvim_buf_get_lines(key_panel_buf, 0, -1, false), "\n")
+check(key_panel:find("Mod3", 1, true) ~= nil, "keyboard panel identifies the logical symbol layer")
+check(key_panel:find("[$]", 1, true) ~= nil, "keyboard panel highlights keys used in the current command")
+tutor.quit()
+vim.wait(50)
+
 tutor.start("1")
 local tab = vim.api.nvim_get_current_tabpage()
 local exercise_buf
@@ -309,6 +443,164 @@ check(vim.deep_equal(vim.api.nvim_buf_get_lines(exercise_buf, 0, -1, false), les
 tutor.quit()
 vim.wait(50)
 check(not vim.api.nvim_tabpage_is_valid(tab), "quit closes the tutor tab")
+
+if vim.fn.exists(":BoneTutorPractice") == 2 then
+vim.cmd("BoneTutorPractice")
+local adaptive_tab = vim.api.nvim_get_current_tabpage()
+exercise_buf = nil
+info_buf = nil
+for _, win in ipairs(vim.api.nvim_tabpage_list_wins(adaptive_tab)) do
+  local buf = vim.api.nvim_win_get_buf(win)
+  if vim.bo[buf].modifiable then
+    exercise_buf = buf
+  else
+    info_buf = buf
+  end
+end
+check(exercise_buf ~= nil and info_buf ~= nil, "adaptive command opens the practice session")
+local adaptive_panel = table.concat(vim.api.nvim_buf_get_lines(info_buf, 0, -1, false), "\n")
+local adaptive_id = adaptive_panel:match("Adaptive Practice  ·  ([%w_%-]+)")
+local adaptive_exercise = by_id[adaptive_id]
+check(adaptive_exercise ~= nil, "adaptive session displays its selected exercise")
+if adaptive_exercise then
+  tutor.reset()
+  local stored_path = vim.fn.stdpath("state") .. "/bonetutor.json"
+  local after_reset = progress.load(stored_path, #lessons)
+  local after_reset_record = after_reset.skills[adaptive_exercise.skill]
+  check(
+    after_reset_record and after_reset_record.failures >= 1,
+    "resetting an adaptive exercise records a failed attempt"
+  )
+  local previous_successes = after_reset_record and after_reset_record.successes or 0
+  local previous_hints = after_reset_record and after_reset_record.hints or 0
+  tutor.hint()
+  vim.api.nvim_buf_set_lines(exercise_buf, 0, -1, false, adaptive_exercise.target.lines or adaptive_exercise.lines)
+  if adaptive_exercise.target.cursor then
+    vim.api.nvim_win_set_cursor(0, {
+      adaptive_exercise.target.cursor[1],
+      adaptive_exercise.target.cursor[2] - 1,
+    })
+  end
+  vim.api.nvim_exec_autocmds("TextChanged", { buffer = exercise_buf })
+  vim.wait(1000, function()
+    local current = progress.load(stored_path, #lessons).skills[adaptive_exercise.skill]
+    return current and current.successes > previous_successes
+  end, 5)
+  local after_success = progress.load(stored_path, #lessons).skills[adaptive_exercise.skill]
+  check(after_success and after_success.successes > previous_successes, "passing an adaptive exercise records success")
+  check(after_success and after_success.hints > previous_hints, "adaptive attempt records hint usage")
+  check(
+    after_success and after_success.recent[#after_success.recent].duration_seconds >= 0,
+    "adaptive attempt records elapsed time"
+  )
+  check(
+    after_success and after_success.recent[#after_success.recent].raw_keystrokes == nil,
+    "adaptive history stores no raw keystrokes"
+  )
+end
+tutor.quit()
+vim.wait(50)
+end
+
+local daily_state = { version = 2, guided_completed = 0, skills = {} }
+for _, exercise in ipairs(catalog) do
+  if not daily_state.skills[exercise.skill] then
+    daily_state.skills[exercise.skill] = {
+      attempts = 1,
+      successes = 1,
+      failures = 0,
+      proficiency = 0.9,
+      due_at = os.time() + 100000000,
+    }
+  end
+end
+daily_state.skills.move_left.due_at = 0
+progress.save(vim.fn.stdpath("state") .. "/bonetutor.json", daily_state)
+
+local original_notify = vim.notify
+local daily_notification
+vim.notify = function(message, level, opts)
+  if tostring(message):find("Daily", 1, true) then
+    daily_notification = tostring(message)
+    return
+  end
+  return original_notify(message, level, opts)
+end
+if vim.fn.exists(":BoneTutorDaily") == 2 then
+  vim.cmd("BoneTutorDaily")
+  local daily_tab = vim.api.nvim_get_current_tabpage()
+  exercise_buf = nil
+  info_buf = nil
+  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(daily_tab)) do
+    local buf = vim.api.nvim_win_get_buf(win)
+    if vim.bo[buf].modifiable then
+      exercise_buf = buf
+    else
+      info_buf = buf
+    end
+  end
+  check(exercise_buf ~= nil and info_buf ~= nil, "daily command opens the existing tutor panes")
+  local initial_daily_panel = table.concat(vim.api.nvim_buf_get_lines(info_buf, 0, -1, false), "\n")
+  check(initial_daily_panel:find("Daily Challenge", 1, true) ~= nil, "daily session identifies its mode")
+  vim.api.nvim_win_set_cursor(0, { 1, lessons[1].target.cursor[2] - 1 })
+  vim.api.nvim_exec_autocmds("CursorMoved", { buffer = exercise_buf })
+  vim.wait(1000, function()
+    return table.concat(vim.api.nvim_buf_get_lines(info_buf, 0, -1, false), "\n")
+      :find("Daily complete", 1, true) ~= nil
+  end, 5)
+  local completion_panel = table.concat(vim.api.nvim_buf_get_lines(info_buf, 0, -1, false), "\n")
+  check(completion_panel:find("1 passed", 1, true) ~= nil, "daily completion summary reports passes")
+  check(completion_panel:find("0 failed", 1, true) ~= nil, "daily completion summary reports failures")
+  tutor.quit()
+  check(
+    daily_notification and daily_notification:find("1 passed", 1, true) ~= nil,
+    "quitting a daily session reports its session summary"
+  )
+  vim.wait(50)
+end
+
+local interruption_state = { version = 2, guided_completed = 0, skills = {} }
+for _, exercise in ipairs(catalog) do
+  if not interruption_state.skills[exercise.skill] then
+    interruption_state.skills[exercise.skill] = {
+      attempts = 1,
+      successes = 1,
+      failures = 0,
+      proficiency = 0.9,
+      due_at = os.time() + 100000000,
+    }
+  end
+end
+interruption_state.skills.move_left.due_at = 0
+progress.save(vim.fn.stdpath("state") .. "/bonetutor.json", interruption_state)
+tutor.practice()
+tutor.daily()
+local interruption_tab = vim.api.nvim_get_current_tabpage()
+exercise_buf = nil
+info_buf = nil
+for _, win in ipairs(vim.api.nvim_tabpage_list_wins(interruption_tab)) do
+  local buf = vim.api.nvim_win_get_buf(win)
+  if vim.bo[buf].modifiable then
+    exercise_buf = buf
+  else
+    info_buf = buf
+  end
+end
+vim.api.nvim_win_set_cursor(0, { 1, lessons[1].target.cursor[2] - 1 })
+vim.api.nvim_exec_autocmds("CursorMoved", { buffer = exercise_buf })
+vim.wait(1000, function()
+  local panel = table.concat(vim.api.nvim_buf_get_lines(info_buf, 0, -1, false), "\n")
+  return panel:find("Daily complete", 1, true) ~= nil
+end, 5)
+local recorded_interruption = progress.load(vim.fn.stdpath("state") .. "/bonetutor.json", #lessons)
+check(
+  recorded_interruption.skills.move_left.failures == 1,
+  "starting a daily challenge preserves the abandoned practice failure after a pass"
+)
+tutor.quit()
+vim.wait(50)
+vim.notify = original_notify
+
 check(vim.deep_equal(keymaps_before.n, vim.api.nvim_get_keymap("n")), "normal mappings are unchanged")
 check(vim.deep_equal(keymaps_before.i, vim.api.nvim_get_keymap("i")), "insert mappings are unchanged")
 check(vim.deep_equal(keymaps_before.v, vim.api.nvim_get_keymap("v")), "visual mappings are unchanged")

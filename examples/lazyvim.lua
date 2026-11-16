@@ -6,6 +6,8 @@ return {
     name = "bonetutor.nvim",
     cmd = {
       "BoneTutor",
+      "BoneTutorPractice",
+      "BoneTutorDaily",
       "BoneTutorNext",
       "BoneTutorPrev",
       "BoneTutorReset",

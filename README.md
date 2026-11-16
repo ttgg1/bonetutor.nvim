@@ -18,9 +18,14 @@ It opens a separate tab with a read-only goal panel above a real practice buffer
    return {
      {
        dir = vim.fn.stdpath("config") .. "/local/bonetutor.nvim",
-       name = "bonetutor.nvim",
-       cmd = {
-         "BoneTutor", "BoneTutorNext", "BoneTutorPrev", "BoneTutorReset",
+        name = "bonetutor.nvim",
+        cmd = {
+          "BoneTutor",
+          "BoneTutorPractice",
+          "BoneTutorDaily",
+          "BoneTutorNext",
+          "BoneTutorPrev",
+          "BoneTutorReset",
          "BoneTutorHint", "BoneTutorKeys", "BoneTutorQuit",
        },
      },
@@ -37,8 +42,10 @@ If you use plain Neovim instead of LazyVim, you can put the unpacked plugin at `
 | --- | --- |
 | `:BoneTutor` | Start or resume the first unfinished lesson. Focus an existing tutor if it is already open. |
 | `:BoneTutor 5` | Jump to lesson 5. |
+| `:BoneTutorPractice` | Start adaptive practice based on skill outcomes and review due dates. |
+| `:BoneTutorDaily` | Start a short daily session of due reviews and up to two new skills. |
 | `:BoneTutorHint` | Show/hide the Bone-specific key position hint. |
-| `:BoneTutorKeys` | Show/hide the standard Bone layer-1 letter rows. |
+| `:BoneTutorKeys` | Show/hide Bone logical key rows and highlight the current command keys. |
 | `:BoneTutorNext` | Advance manually; passing a lesson also advances automatically after a brief success message. |
 | `:BoneTutorPrev` | Go to the previous lesson. |
 | `:BoneTutorReset` | Reset the current lesson. |
@@ -54,7 +61,7 @@ No mappings (even buffer-local) are installed, so this does not collide with Laz
 - `w/b/e`, `3w`, `0/$`, `gg/G`;
 - `f`, `t`, `/`, `%`, including Bone's symbol layer;
 - `dw`, `diw`, `ciw`, `dd`, `x`;
-- `o`, `A`, `yy` + `p`, `d$`, `ci"`.
+- `o`, `A`, `yy` + `p`, `d$`, `ci"`;
 - realistic Rust and Python edits, including renaming identifiers across references,
   removing a function-call argument, and updating a call site.
 
@@ -70,14 +77,21 @@ f v ü ä ö  |  y z , . k
 
 Bone's layers 3 and 4 retain the Neo layer arrangements. Commands involving punctuation mention the symbol layer in their hints.
 
+When `:BoneTutorKeys` is enabled, the current exercise's logical keys are highlighted
+in the standard Bone rows and Mod3 symbol rows. The display describes logical keys
+received by Neovim; it does not detect physical keypresses or assume where a user's
+modifier keys are placed.
+
 ## Important details
 
 - **Native Vim is intentionally used:** the check verifies the final state, not how you got there. For meaningful practice, don't use arrow keys for the `hjkl` lessons. Plugins that intercept a native command may need to be disabled for the affected lesson.
 - As in VimTutor, edits use real Vim operators and registers. If your configuration maps the unnamed register to the system clipboard, `d`, `x`, and `yy` may change your clipboard. Practice in the isolated tutor buffer, but consider temporarily changing your clipboard option if this matters to you.
 - A goal involving insertion passes after you press Escape and the resulting buffer matches the target.
 - On pass, the tutor briefly shows success, then automatically loads the next lesson. Passing the final lesson wraps to lesson 1.
+- Adaptive practice selects among the guided catalog and variants, recording pass/reset outcomes, hint use, and elapsed seconds per skill. It stores no raw keystrokes.
+- Daily practice uses the same tutor panes, prioritizes due reviews, introduces at most two new skills, and shows a pass/failure summary when completed or quit.
 - Session progress lives at `stdpath("state")/bonetutor.json` in a versioned format. Existing `{"completed": n}` progress is migrated automatically; delete **that specific file** to restart from lesson 1, or jump to any exercise with `:BoneTutor <number>`.
-- The layout map assumes standard Bone; a custom Bone/Q/ß variant may differ in those letter positions. Nothing in the tutor changes the OS layout.
+- The layout map defaults to standard Bone; a custom Bone/Q/ß variant may differ. Nothing in the tutor changes the OS layout.
 
 ## Developing or testing
 

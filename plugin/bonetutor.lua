@@ -20,6 +20,8 @@ command("BoneTutor", "start", {
     return result
   end,
 })
+command("BoneTutorPractice", "practice", { desc = "Start adaptive Bone tutor practice" })
+command("BoneTutorDaily", "daily", { desc = "Start a short daily Bone tutor challenge" })
 command("BoneTutorNext", "next", { desc = "Continue after passing the Bone tutor goal" })
 command("BoneTutorPrev", "prev", { desc = "Repeat the previous Bone tutor exercise" })
 command("BoneTutorReset", "reset", { desc = "Reset the current Bone tutor exercise" })
