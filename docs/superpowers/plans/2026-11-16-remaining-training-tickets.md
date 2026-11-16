@@ -64,11 +64,11 @@
 - Lessons may supply a `keys` string for the command being taught; old lesson records without it remain valid.
 - The UI highlights logical keys on the existing optional keyboard panel; standard Bone is the default.
 
-- [ ] **Step 1: Write failing tests** for the authoritative standard Bone letter rows, symbol-layer metadata used by current exercises, key lookup/highlighting, and absent/unknown keys.
-- [ ] **Step 2: Run the suite and confirm** layout-module tests fail before its implementation.
-- [ ] **Step 3: Implement** declarative logical layout data and current-exercise highlighting, without claiming physical key detection or assuming modifier positions.
-- [ ] **Step 4: Run the headless suite** and verify toggling hints leaves maps/options unchanged.
-- [ ] **Step 5: Update** layout documentation and BT-07 status; commit as `feat: show Bone command key positions`.
+- [x] **Step 1: Write failing tests** for the authoritative standard Bone letter rows, symbol-layer metadata used by current exercises, key lookup/highlighting, and absent/unknown keys.
+- [x] **Step 2: Run the suite and confirm** layout-module tests fail before its implementation.
+- [x] **Step 3: Implement** declarative logical layout data and current-exercise highlighting, without claiming physical key detection or assuming modifier positions.
+- [x] **Step 4: Run the headless suite** and verify toggling hints leaves maps/options unchanged.
+- [x] **Step 5: Update** layout documentation and BT-07 status; commit as `feat: show Bone command key positions`.
 
 ### Task 3: BT-08 — Add deterministic daily sessions and summaries
 

@@ -3,6 +3,7 @@ local lessons = require("bonetutor.lessons")
 local progress = require("bonetutor.progress")
 local catalog = require("bonetutor.exercises").list()
 local scheduler = require("bonetutor.scheduler")
+local layouts = require("bonetutor.layouts")
 local session
 
 local function progress_path()
@@ -75,13 +76,26 @@ local function render()
     lines[#lines + 1] = "Hint: " .. lesson.hint
   end
   if session.show_keys then
-    vim.list_extend(lines, {
-      "",
-      "Bone / layer 1 (physical left | right; NOT QWERTZ):",
-      "  j d u a x  |  p h l m w q",
-      "  c t i e o  |  b n r s g ß",
-      "  f v ü ä ö  |  y z , . k",
-    })
+    local highlighted = {}
+    for _, location in ipairs(layouts.describe(lesson.keys, layouts.standard)) do
+      highlighted[location.key] = true
+    end
+    local function row(keys)
+      local cells = {}
+      for _, key in ipairs(keys) do
+        cells[#cells + 1] = highlighted[key] and ("[" .. key .. "]") or key
+      end
+      return table.concat(cells, " ")
+    end
+    vim.list_extend(lines, { "", "Bone layer 1 (logical keys; NOT QWERTZ):" })
+    for index = 1, #layouts.standard.layers[1].rows, 2 do
+      lines[#lines + 1] = "  " .. row(layouts.standard.layers[1].rows[index])
+        .. "  |  " .. row(layouts.standard.layers[1].rows[index + 1])
+    end
+    lines[#lines + 1] = "Mod3 symbols (logical layer; physical modifier placement varies):"
+    for _, symbol_row in ipairs(layouts.standard.layers[3].rows) do
+      lines[#lines + 1] = "  " .. row(symbol_row)
+    end
   end
 
   vim.bo[session.info_buf].modifiable = true
@@ -280,6 +294,7 @@ load_practice = function(exercise)
     lines = exercise.lines,
     start = exercise.start,
     target = exercise.target,
+    keys = exercise.keys,
   }
   session.passed = false
   session.finished = false

@@ -26,6 +26,7 @@ function M.list()
       target = lesson.target,
       prompt = lesson.goal,
       hint = lesson.hint,
+      keys = lesson.keys,
     }
   end
 
@@ -39,6 +40,7 @@ function M.list()
     target = { cursor = { 1, 5 } },
     prompt = "Jump to the beginning of 'pine'.",
     hint = "Press w.",
+    keys = { "w" },
   }
   result[#result + 1] = {
     id = "delete_inside_word_variant_02",
@@ -50,6 +52,7 @@ function M.list()
     target = { lines = { "keep  nearby" } },
     prompt = "Delete only 'cobalt', leaving the surrounding spaces.",
     hint = "Press diw.",
+    keys = { "d", "i", "w" },
   }
   result[#result + 1] = {
     id = "change_inside_word_variant_02",
@@ -61,6 +64,7 @@ function M.list()
     target = { lines = { "set tone value" } },
     prompt = "Replace 'shade' with 'tone'.",
     hint = "Press ciw, type tone, then Escape.",
+    keys = { "c", "i", "w" },
   }
 
   return result

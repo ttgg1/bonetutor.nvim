@@ -116,7 +116,7 @@ Skill records use bounded, sanitized outcome history, Bayesian-smoothed success
 proficiency, and review intervals. `:BoneTutorPractice` selects from the catalog;
 guided lessons remain available through `:BoneTutor`.
 
-## BT-07 — Improve Bone layout hints (P2)
+## BT-07 — Improve Bone layout hints (P2) — complete
 
 **Depends on:** BT-04
 
@@ -130,6 +130,11 @@ relevant modifier-layer labels, and current-command highlighting.
 - Variant and QWERTZ comparison options remain opt-in.
 - Documentation clearly distinguishes logical keys received by Neovim from physical
   key detection; no keyboard interception is added.
+
+`lua/bonetutor/layouts.lua` records standard Bone layer-1 rows and the logical Mod3
+symbol rows from the [official Bone layout](https://www.neo-layout.org/Layouts/bone/).
+`:BoneTutorKeys` highlights keys used by the current exercise. The display reports
+logical symbols and does not assume where a user's physical modifier key is located.
 
 ## BT-08 — Add session feedback and daily challenge (P2)
 

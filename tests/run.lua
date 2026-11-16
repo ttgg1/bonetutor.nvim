@@ -27,6 +27,7 @@ end
 local progress = require("bonetutor.progress")
 local scheduler = require("bonetutor.scheduler")
 local exercise_catalog = require("bonetutor.exercises")
+local layouts = require("bonetutor.layouts")
 local progress_file = vim.fn.tempname()
 local migrated = progress.load(progress_file, #lessons)
 check(migrated.version == 2 and migrated.guided_completed == 0, "missing progress starts at version 2")
@@ -100,12 +101,49 @@ selection = scheduler.next({
 }, exercises, 20, 1)
 check(selection and selection.skill == "compound", "scheduler unlocks compounds after mastery")
 local catalog = exercise_catalog.list()
+check(
+  vim.deep_equal(layouts.standard.layers[1].rows, {
+    { "j", "d", "u", "a", "x" },
+    { "p", "h", "l", "m", "w", "q" },
+    { "c", "t", "i", "e", "o" },
+    { "b", "n", "r", "s", "g", "ß" },
+    { "f", "v", "ü", "ä", "ö" },
+    { "y", "z", ",", ".", "k" },
+  }),
+  "standard Bone layer 1 exposes the documented left/right letter rows"
+)
+local symbol_locations = {}
+for _, location in ipairs(layouts.describe({ "h", "$", "/", ":", "%" }, layouts.standard)) do
+  symbol_locations[location.key] = location
+end
+check(symbol_locations.h and symbol_locations.h.layer == 1, "letter lookup identifies layer 1")
+check(symbol_locations["$"] and symbol_locations["$"].layer == 3, "dollar lookup identifies Mod3")
+check(symbol_locations["/"] and symbol_locations["/"].layer == 3, "slash lookup identifies Mod3")
+check(symbol_locations[":"] and symbol_locations[":"].layer == 3, "colon lookup identifies Mod3")
+check(symbol_locations["%"] and symbol_locations["%"].layer == 3, "percent lookup identifies Mod3")
+check(#layouts.describe({}, layouts.standard) == 0, "empty key list has no highlights")
+check(#layouts.describe({ "unknown-key" }, layouts.standard) == 0, "unknown key has no highlight")
+local displayed_locations = {}
+for _, location in ipairs(layouts.describe({ "h", "$" }, layouts.standard)) do
+  displayed_locations[location.key] = location
+end
+check(
+  displayed_locations.h.row == 1
+    and displayed_locations.h.hand == "right"
+    and displayed_locations.h.column == 2,
+  "top-row h lookup includes its layer-1 hand and location"
+)
+check(displayed_locations["$"].modifier == "Mod3",
+  "symbol lookup names the logical modifier layer")
 check(#catalog >= #lessons, "exercise catalog includes every guided lesson")
 local by_id = {}
 for _, exercise in ipairs(catalog) do
   by_id[exercise.id] = exercise
   check(type(exercise.skill) == "string", exercise.id .. " has a stable skill")
   check(position_is_valid(exercise.start, exercise.lines), exercise.id .. " has a valid start position")
+  if exercise.id == "guided_10" then
+    check(vim.deep_equal(exercise.keys, { "$" }), "end-of-line exercise declares the symbol key it teaches")
+  end
 end
 check(by_id.word_forward_variant_02 ~= nil, "word motion has a distinct exercise variant")
 check(
@@ -259,6 +297,15 @@ for index, lesson in ipairs(lessons) do
   end
 end
 local tutor = require("bonetutor")
+tutor.quit()
+vim.wait(50)
+
+tutor.start("10")
+tutor.keys()
+local _, key_panel_buf = inspect_exercise(10)
+local key_panel = table.concat(vim.api.nvim_buf_get_lines(key_panel_buf, 0, -1, false), "\n")
+check(key_panel:find("Mod3", 1, true) ~= nil, "keyboard panel identifies the logical symbol layer")
+check(key_panel:find("[$]", 1, true) ~= nil, "keyboard panel highlights keys used in the current command")
 tutor.quit()
 vim.wait(50)
 

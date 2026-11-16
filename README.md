@@ -39,7 +39,7 @@ If you use plain Neovim instead of LazyVim, you can put the unpacked plugin at `
 | `:BoneTutor 5` | Jump to lesson 5. |
 | `:BoneTutorPractice` | Start adaptive practice based on skill outcomes and review due dates. |
 | `:BoneTutorHint` | Show/hide the Bone-specific key position hint. |
-| `:BoneTutorKeys` | Show/hide the standard Bone layer-1 letter rows. |
+| `:BoneTutorKeys` | Show/hide Bone logical key rows and highlight the current command keys. |
 | `:BoneTutorNext` | Advance manually; passing a lesson also advances automatically after a brief success message. |
 | `:BoneTutorPrev` | Go to the previous lesson. |
 | `:BoneTutorReset` | Reset the current lesson. |
@@ -71,6 +71,11 @@ f v ü ä ö  |  y z , . k
 
 Bone's layers 3 and 4 retain the Neo layer arrangements. Commands involving punctuation mention the symbol layer in their hints.
 
+When `:BoneTutorKeys` is enabled, the current exercise's logical keys are highlighted
+in the standard Bone rows and Mod3 symbol rows. The display describes logical keys
+received by Neovim; it does not detect physical keypresses or assume where a user's
+modifier keys are placed.
+
 ## Important details
 
 - **Native Vim is intentionally used:** the check verifies the final state, not how you got there. For meaningful practice, don't use arrow keys for the `hjkl` lessons. Plugins that intercept a native command may need to be disabled for the affected lesson.
@@ -79,7 +84,7 @@ Bone's layers 3 and 4 retain the Neo layer arrangements. Commands involving punc
 - On pass, the tutor briefly shows success, then automatically loads the next lesson. Passing the final lesson wraps to lesson 1.
 - Adaptive practice selects among the guided catalog and variants, recording pass/reset outcomes, hint use, and elapsed seconds per skill. It stores no raw keystrokes.
 - Session progress lives at `stdpath("state")/bonetutor.json` in a versioned format. Existing `{"completed": n}` progress is migrated automatically; delete **that specific file** to restart from lesson 1, or jump to any exercise with `:BoneTutor <number>`.
-- The layout map assumes standard Bone; a custom Bone/Q/ß variant may differ in those letter positions. Nothing in the tutor changes the OS layout.
+- The layout map defaults to standard Bone; a custom Bone/Q/ß variant may differ. Nothing in the tutor changes the OS layout.
 
 ## Developing or testing
 
